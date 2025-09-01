@@ -287,7 +287,6 @@ const OutstationBooking: React.FC = () => {
         </form>
       </div>
     </div>
-    </div>
   );
 };
 
