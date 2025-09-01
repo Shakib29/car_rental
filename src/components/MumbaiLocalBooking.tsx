@@ -5,7 +5,7 @@ import { useAdmin } from '../contexts/AdminContext';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 import { APIProvider } from '@vis.gl/react-google-maps';
-import LocationAutocomplete from './LocationAutocomplete'; // Assuming this file exists and is in the same directory
+import LocationAutocomplete from "./LocationAutocomplete";
 
 interface LocalBooking {
   customerName: string;
@@ -38,7 +38,6 @@ const MumbaiLocalBooking: React.FC = () => {
   const [distance, setDistance] = useState(0);
   const [price, setPrice] = useState(0);
 
-  // --- Google Maps Integration for Distance Calculation ---
   const calculateDistance = async () => {
     if (!booking.pickupCoords || !booking.dropoffCoords) {
       setDistance(0);
@@ -58,10 +57,9 @@ const MumbaiLocalBooking: React.FC = () => {
 
       if (data.status === 'OK' && data.rows[0].elements[0].status === 'OK') {
         const distanceInMeters = data.rows[0].elements[0].distance.value;
-        const calculatedDistance = Math.round(distanceInMeters / 1000); // Convert meters to km
+        const calculatedDistance = Math.round(distanceInMeters / 1000);
         setDistance(calculatedDistance);
 
-        // Calculate price based on service type and admin-set rates
         let rate = pricing.mumbaiLocal.baseRate;
         if (booking.serviceType.includes('airport')) {
           rate = pricing.mumbaiLocal.airportRate;
@@ -112,7 +110,7 @@ const MumbaiLocalBooking: React.FC = () => {
           service_type: booking.serviceType,
           from_location: booking.pickup,
           to_location: booking.dropoff,
-          car_type: 'Not specified', // or a different field for mumbai local cars
+          car_type: 'Not specified',
           travel_date: booking.date,
           travel_time: booking.time,
           estimated_price: price,
@@ -134,7 +132,6 @@ const MumbaiLocalBooking: React.FC = () => {
       return;
     }
 
-    // Save to database first
     saveBookingToDatabase().then(saved => {
       if (!saved) {
         toast.error('Failed to save booking. Please try again.');
@@ -166,7 +163,6 @@ const MumbaiLocalBooking: React.FC = () => {
           </h2>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Customer Information */}
             <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6">
               <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
                 <User className="w-5 h-5 mr-2 text-green-600" />
@@ -217,40 +213,40 @@ const MumbaiLocalBooking: React.FC = () => {
               </div>
             </div>
 
-            {/* Service Type */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Service Type
-              </label>
-              <div className="grid sm:grid-cols-3 gap-4">
-                {[
-                  { value: 'airport-pickup', label: 'Airport Pickup', icon: '✈️' },
-                  { value: 'airport-drop', label: 'Airport Drop', icon: '🚖' },
-                  { value: 'local-ride', label: 'Local Ride', icon: '🏙️' }
-                ].map(service => (
-                  <motion.div
-                    key={service.value}
-                    whileHover={{ scale: 1.02 }}
-                    className={`p-4 border-2 rounded-lg cursor-pointer transition-colors ${
-                      booking.serviceType === service.value
-                        ? 'border-green-600 bg-green-50 dark:bg-green-900/20'
-                        : 'border-gray-300 dark:border-gray-600 hover:border-green-400'
-                    }`}
-                    onClick={() => setBooking({ ...booking, serviceType: service.value as any })}
-                  >
-                    <div className="text-center">
-                      <div className="text-2xl mb-2">{service.icon}</div>
-                      <span className="font-medium text-gray-800 dark:text-white">
-                        {service.label}
-                      </span>
-                    </div>
-                  </motion.div>
-                ))}
+            <div className="grid md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Service Type
+                </label>
+                <div className="grid sm:grid-cols-3 gap-4">
+                  {[
+                    { value: 'airport-pickup', label: 'Airport Pickup', icon: '✈️' },
+                    { value: 'airport-drop', label: 'Airport Drop', icon: '🚖' },
+                    { value: 'local-ride', label: 'Local Ride', icon: '🏙️' }
+                  ].map(service => (
+                    <motion.div
+                      key={service.value}
+                      whileHover={{ scale: 1.02 }}
+                      className={`p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+                        booking.serviceType === service.value
+                          ? 'border-green-600 bg-green-50 dark:bg-green-900/20'
+                          : 'border-gray-300 dark:border-gray-600 hover:border-green-400'
+                      }`}
+                      onClick={() => setBooking({ ...booking, serviceType: service.value as any })}
+                    >
+                      <div className="text-center">
+                        <div className="text-2xl mb-2">{service.icon}</div>
+                        <span className="font-medium text-gray-800 dark:text-white">
+                          {service.label}
+                        </span>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
               </div>
             </div>
 
             <div className="grid md:grid-cols-2 gap-6">
-              {/* Pickup Location */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Pickup Location
@@ -261,7 +257,6 @@ const MumbaiLocalBooking: React.FC = () => {
                 />
               </div>
 
-              {/* Drop-off Location */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Drop-off Location
@@ -274,7 +269,6 @@ const MumbaiLocalBooking: React.FC = () => {
             </div>
 
             <div className="grid md:grid-cols-2 gap-6">
-              {/* Date */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Travel Date
@@ -289,7 +283,6 @@ const MumbaiLocalBooking: React.FC = () => {
                 />
               </div>
 
-              {/* Time */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Pickup Time
@@ -304,7 +297,6 @@ const MumbaiLocalBooking: React.FC = () => {
               </div>
             </div>
 
-            {/* Distance and Price Display */}
             {distance > 0 && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
@@ -325,7 +317,6 @@ const MumbaiLocalBooking: React.FC = () => {
               </motion.div>
             )}
 
-            {/* Submit Button */}
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
