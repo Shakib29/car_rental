@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { MapPin, Users, Clock, ArrowRight, User, Phone, Mail } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useAuth } from '../contexts/AuthContext';
+import { useAdmin } from '../contexts/AdminContext';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
-import AuthModal from './AuthModal';
 
 interface BookingData {
   customerName: string;
@@ -28,35 +27,16 @@ const OutstationBooking: React.FC = () => {
     date: '',
     time: ''
   });
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const { user } = useAuth();
+  const { pricing } = useAdmin();
 
   const cities = ['Mumbai', 'Pune', 'Surat', 'Nashik'];
   
-  const pricing = {
-    '4-seater': {
-      'Mumbai-Pune': 2500,
-      'Mumbai-Surat': 3500,
-      'Mumbai-Nashik': 2800,
-      'Pune-Surat': 4000,
-      'Pune-Nashik': 2200,
-      'Surat-Nashik': 3200
-    },
-    '6-seater': {
-      'Mumbai-Pune': 3500,
-      'Mumbai-Surat': 4500,
-      'Mumbai-Nashik': 3800,
-      'Pune-Surat': 5000,
-      'Pune-Nashik': 3200,
-      'Surat-Nashik': 4200
-    }
-  };
 
   const getPrice = () => {
     if (!booking.from || !booking.to || booking.from === booking.to) return 0;
     const route = `${booking.from}-${booking.to}`;
     const reverseRoute = `${booking.to}-${booking.from}`;
-    return pricing[booking.carType][route] || pricing[booking.carType][reverseRoute] || 0;
+    return pricing.outstation[booking.carType][route] || pricing.outstation[booking.carType][reverseRoute] || 0;
   };
 
   const saveBookingToDatabase = async () => {
@@ -64,7 +44,7 @@ const OutstationBooking: React.FC = () => {
       const { error } = await supabase
         .from('bookings')
         .insert({
-          customer_id: user?.id || 'guest',
+          customer_id: 'guest',
           customer_name: booking.customerName,
           customer_phone: booking.customerPhone,
           customer_email: booking.customerEmail || null,
@@ -106,25 +86,13 @@ const OutstationBooking: React.FC = () => {
       `Outstation Booking Request:\n\nCustomer: ${booking.customerName}\nPhone: ${booking.customerPhone}\nEmail: ${booking.customerEmail || 'Not provided'}\n\nFrom: ${booking.from}\nTo: ${booking.to}\nCar Type: ${booking.carType}\nDate: ${booking.date}\nTime: ${booking.time}\nEstimated Price: ₹${price}\n\nPlease confirm my booking.`
     );
     
-    window.open(`https://wa.me/919876543210?text=${message}`, '_blank');
+    window.open(`https://wa.me/919860146819?text=${message}`, '_blank');
     toast.success('Redirecting to WhatsApp for booking confirmation');
   };
 
-  // Auto-fill customer info if logged in
-  React.useEffect(() => {
-    if (user && !user.isAdmin) {
-      setBooking(prev => ({
-        ...prev,
-        customerName: user.name || '',
-        customerPhone: user.phone,
-        customerEmail: user.email || ''
-      }));
-    }
-  }, [user]);
 
   return (
-    <>
-      <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8">
         <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6 flex items-center">
           <MapPin className="w-6 h-6 mr-2 text-blue-600" />
@@ -319,15 +287,7 @@ const OutstationBooking: React.FC = () => {
         </form>
       </div>
     </div>
-      
-      <AuthModal 
-        isOpen={showAuthModal} 
-        onClose={() => setShowAuthModal(false)}
-        onSuccess={() => {
-          // Auto-fill will happen via useEffect
-        }}
-      />
-    </>
+    </div>
   );
 };
 

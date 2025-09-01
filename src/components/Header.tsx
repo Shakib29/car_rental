@@ -2,14 +2,14 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Car, Menu, X, Sun, Moon, User, LogOut, Settings } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
-import { useAuth } from '../contexts/AuthContext';
+import { useAdmin } from '../contexts/AdminContext';
 import { motion } from 'framer-motion';
 
 const Header: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const { isDark, toggleTheme } = useTheme();
-  const { user, logout } = useAuth();
+  const { admin, logout } = useAdmin();
   const location = useLocation();
 
   const navItems = [
@@ -57,7 +57,7 @@ const Header: React.FC = () => {
           {/* Theme Toggle & Mobile Menu */}
           <div className="flex items-center space-x-4">
             {/* User Menu */}
-            {user && (
+            {admin && (
               <div className="relative">
                 <button
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
@@ -65,7 +65,7 @@ const Header: React.FC = () => {
                 >
                   <User className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                   <span className="hidden sm:block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {user.name || user.phone}
+                    Admin
                   </span>
                 </button>
 
@@ -77,20 +77,18 @@ const Header: React.FC = () => {
                   >
                     <div className="p-3 border-b border-gray-200 dark:border-gray-700">
                       <p className="text-sm font-medium text-gray-800 dark:text-white">
-                        {user.name || 'Customer'}
+                        Administrator
                       </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{user.phone}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Admin Panel Access</p>
                     </div>
-                    {user.isAdmin && (
-                      <Link
-                        to="/admin"
-                        onClick={() => setIsUserMenuOpen(false)}
-                        className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                      >
-                        <Settings className="w-4 h-4" />
-                        <span>Admin Panel</span>
-                      </Link>
-                    )}
+                    <Link
+                      to="/admin/dashboard"
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    >
+                      <Settings className="w-4 h-4" />
+                      <span>Dashboard</span>
+                    </Link>
                     <button
                       onClick={() => {
                         logout();
@@ -106,12 +104,12 @@ const Header: React.FC = () => {
               </div>
             )}
 
-            {!user && (
+            {!admin && (
               <Link
-                to="/login"
+                to="/admin"
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
               >
-                Login
+                Admin
               </Link>
             )}
 
