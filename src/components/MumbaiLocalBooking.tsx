@@ -1,11 +1,36 @@
-import React, { useState } from "react";
-import { APIProvider, Autocomplete } from "@vis.gl/react-google-maps";
+import React, { useEffect, useRef, useState } from "react";
+import { APIProvider, Map } from "@vis.gl/react-google-maps";
 import { motion } from "framer-motion";
 import { MapPin } from "lucide-react";
 
 const MumbaiLocalBooking = () => {
   const [pickup, setPickup] = useState("");
   const [drop, setDrop] = useState("");
+
+  const pickupRef = useRef<HTMLInputElement>(null);
+  const dropRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (pickupRef.current) {
+      const autocomplete = new google.maps.places.Autocomplete(pickupRef.current, {
+        types: ["geocode"],
+      });
+      autocomplete.addListener("place_changed", () => {
+        const place = autocomplete.getPlace();
+        setPickup(place.formatted_address || "");
+      });
+    }
+
+    if (dropRef.current) {
+      const autocomplete = new google.maps.places.Autocomplete(dropRef.current, {
+        types: ["geocode"],
+      });
+      autocomplete.addListener("place_changed", () => {
+        const place = autocomplete.getPlace();
+        setDrop(place.formatted_address || "");
+      });
+    }
+  }, []);
 
   const handleBook = () => {
     alert(`Booking from ${pickup} to ${drop}`);
@@ -14,7 +39,6 @@ const MumbaiLocalBooking = () => {
   return (
     <APIProvider
       apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "YOUR_API_KEY_HERE"}
-      solutionChannel="react-google-maps-demo"
     >
       <motion.div
         className="p-6 bg-white rounded-2xl shadow-md mt-6"
@@ -28,29 +52,23 @@ const MumbaiLocalBooking = () => {
         {/* Pickup Field */}
         <div className="mb-4">
           <label className="block text-sm font-medium mb-1">Pickup Location</label>
-          <Autocomplete
-            onPlaceChanged={(place) => setPickup(place.formatted_address || "")}
-          >
-            <input
-              type="text"
-              placeholder="Enter pickup location"
-              className="w-full border rounded-lg px-3 py-2"
-            />
-          </Autocomplete>
+          <input
+            ref={pickupRef}
+            type="text"
+            placeholder="Enter pickup location"
+            className="w-full border rounded-lg px-3 py-2"
+          />
         </div>
 
         {/* Drop Field */}
         <div className="mb-4">
           <label className="block text-sm font-medium mb-1">Drop Location</label>
-          <Autocomplete
-            onPlaceChanged={(place) => setDrop(place.formatted_address || "")}
-          >
-            <input
-              type="text"
-              placeholder="Enter drop location"
-              className="w-full border rounded-lg px-3 py-2"
-            />
-          </Autocomplete>
+          <input
+            ref={dropRef}
+            type="text"
+            placeholder="Enter drop location"
+            className="w-full border rounded-lg px-3 py-2"
+          />
         </div>
 
         {/* Button */}
