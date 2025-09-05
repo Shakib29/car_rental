@@ -12,7 +12,13 @@ import {
   Settings,
   Save,
   LogOut,
-  Edit3
+  Edit3,
+  Plus,
+  Megaphone,
+  Eye,
+  EyeOff,
+  Trash2,
+  Image
 } from 'lucide-react';
 import { useAdmin } from '../contexts/AdminContext';
 import { useNavigate } from 'react-router-dom';
@@ -35,16 +41,41 @@ interface Booking {
   created_at: string;
 }
 
+interface PromotionalPost {
+  id: string;
+  title: string;
+  description: string | null;
+  image_url: string | null;
+  button_text: string | null;
+  button_link: string | null;
+  is_active: boolean;
+  display_order: number;
+  created_at: string;
+}
+
 const AdminDashboard: React.FC = () => {
   const { admin, logout, pricing, updatePricing } = useAdmin();
   const navigate = useNavigate();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
+  const [promotionalPosts, setPromotionalPosts] = useState<PromotionalPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [showPricingModal, setShowPricingModal] = useState(false);
+  const [showPostModal, setShowPostModal] = useState(false);
+  const [editingPost, setEditingPost] = useState<PromotionalPost | null>(null);
   const [tempPricing, setTempPricing] = useState(pricing);
+  const [activeTab, setActiveTab] = useState<'bookings' | 'posts'>('bookings');
+
+  const [postForm, setPostForm] = useState({
+    title: '',
+    description: '',
+    image_url: '',
+    button_text: '',
+    button_link: '',
+    display_order: 0
+  });
 
   useEffect(() => {
     if (!admin?.isAuthenticated) {
@@ -52,6 +83,7 @@ const AdminDashboard: React.FC = () => {
       return;
     }
     fetchBookings();
+    fetchPromotionalPosts();
   }, [admin, navigate]);
 
   useEffect(() => {
@@ -71,6 +103,21 @@ const AdminDashboard: React.FC = () => {
       toast.error('Failed to fetch bookings');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchPromotionalPosts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('promotional_posts')
+        .select('*')
+        .order('display_order', { ascending: true })
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setPromotionalPosts(data || []);
+    } catch (error) {
+      toast.error('Failed to fetch promotional posts');
     }
   };
 
@@ -117,6 +164,101 @@ const AdminDashboard: React.FC = () => {
     } catch (error) {
       toast.error('Failed to update booking status');
     }
+  };
+
+  const handlePostSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      if (editingPost) {
+        const { error } = await supabase
+          .from('promotional_posts')
+          .update({
+            ...postForm,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', editingPost.id);
+
+        if (error) throw error;
+        toast.success('Post updated successfully');
+      } else {
+        const { error } = await supabase
+          .from('promotional_posts')
+          .insert(postForm);
+
+        if (error) throw error;
+        toast.success('Post created successfully');
+      }
+
+      setShowPostModal(false);
+      setEditingPost(null);
+      setPostForm({
+        title: '',
+        description: '',
+        image_url: '',
+        button_text: '',
+        button_link: '',
+        display_order: 0
+      });
+      fetchPromotionalPosts();
+    } catch (error) {
+      toast.error('Failed to save post');
+    }
+  };
+
+  const togglePostStatus = async (postId: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('promotional_posts')
+        .update({ 
+          is_active: !currentStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', postId);
+
+      if (error) throw error;
+
+      setPromotionalPosts(prev =>
+        prev.map(post =>
+          post.id === postId ? { ...post, is_active: !currentStatus } : post
+        )
+      );
+
+      toast.success(`Post ${!currentStatus ? 'activated' : 'deactivated'} successfully`);
+    } catch (error) {
+      toast.error('Failed to update post status');
+    }
+  };
+
+  const deletePost = async (postId: string) => {
+    if (!confirm('Are you sure you want to delete this post?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('promotional_posts')
+        .delete()
+        .eq('id', postId);
+
+      if (error) throw error;
+
+      setPromotionalPosts(prev => prev.filter(post => post.id !== postId));
+      toast.success('Post deleted successfully');
+    } catch (error) {
+      toast.error('Failed to delete post');
+    }
+  };
+
+  const openEditModal = (post: PromotionalPost) => {
+    setEditingPost(post);
+    setPostForm({
+      title: post.title,
+      description: post.description || '',
+      image_url: post.image_url || '',
+      button_text: post.button_text || '',
+      button_link: post.button_link || '',
+      display_order: post.display_order
+    });
+    setShowPostModal(true);
   };
 
   const handlePricingUpdate = () => {
@@ -211,185 +353,347 @@ const AdminDashboard: React.FC = () => {
           ))}
         </div>
 
-        {/* Filters */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-8"
-        >
-          <div className="flex flex-col sm:flex-row gap-4">
-            {/* Search */}
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search by name, phone, or location..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                />
+        {/* Tab Navigation */}
+        <div className="flex justify-center mb-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-1 shadow-lg">
+            <button
+              onClick={() => setActiveTab('bookings')}
+              className={`px-6 py-3 rounded-md font-semibold transition-colors flex items-center space-x-2 ${
+                activeTab === 'bookings'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-600 dark:text-gray-300 hover:text-blue-600'
+              }`}
+            >
+              <Calendar className="w-4 h-4" />
+              <span>Bookings</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('posts')}
+              className={`px-6 py-3 rounded-md font-semibold transition-colors flex items-center space-x-2 ${
+                activeTab === 'posts'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-600 dark:text-gray-300 hover:text-blue-600'
+              }`}
+            >
+              <Megaphone className="w-4 h-4" />
+              <span>Promotional Posts</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === 'bookings' && (
+          <>
+            {/* Filters */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-8"
+            >
+              <div className="flex flex-col sm:flex-row gap-4">
+                {/* Search */}
+                <div className="flex-1">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Search by name, phone, or location..."
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                    />
+                  </div>
+                </div>
+
+                {/* Status Filter */}
+                <div className="sm:w-48">
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
               </div>
-            </div>
+            </motion.div>
 
-            {/* Status Filter */}
-            <div className="sm:w-48">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+            {/* Bookings Table */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden"
+            >
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
+                  Recent Bookings ({filteredBookings.length})
+                </h2>
+              </div>
+
+              {isLoading ? (
+                <div className="p-8 text-center">
+                  <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                  <p className="text-gray-600 dark:text-gray-300">Loading bookings...</p>
+                </div>
+              ) : filteredBookings.length === 0 ? (
+                <div className="p-8 text-center">
+                  <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600 dark:text-gray-300">No bookings found</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 dark:bg-gray-700">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                          Customer
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                          Service
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                          Route
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                          Date & Time
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                          Price
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                      {filteredBookings.map((booking, index) => (
+                        <motion.tr
+                          key={booking.id}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.05 }}
+                          className="hover:bg-gray-50 dark:hover:bg-gray-700"
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div>
+                              <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                {booking.customer_name}
+                              </div>
+                              <div className="text-sm text-gray-500 dark:text-gray-400">
+                                {booking.customer_phone}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900 dark:text-white">
+                              {booking.service_type === 'outstation' ? 'Outstation' : 'Mumbai Local'}
+                            </div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400">
+                              {booking.car_type}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-sm text-gray-900 dark:text-white">
+                              {booking.from_location}
+                            </div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400">
+                              → {booking.to_location}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900 dark:text-white">
+                              {new Date(booking.travel_date).toLocaleDateString()}
+                            </div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400">
+                              {booking.travel_time}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900 dark:text-white">
+                              ₹{booking.estimated_price.toLocaleString()}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(booking.status)}`}>
+                              {booking.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div className="flex space-x-2">
+                              {booking.status === 'pending' && (
+                                <>
+                                  <button
+                                    onClick={() => updateBookingStatus(booking.id, 'confirmed')}
+                                    className="text-green-600 hover:text-green-900 dark:hover:text-green-400"
+                                    title="Confirm booking"
+                                  >
+                                    <CheckCircle className="w-5 h-5" />
+                                  </button>
+                                  <button
+                                    onClick={() => updateBookingStatus(booking.id, 'cancelled')}
+                                    className="text-red-600 hover:text-red-900 dark:hover:text-red-400"
+                                    title="Cancel booking"
+                                  >
+                                    <XCircle className="w-5 h-5" />
+                                  </button>
+                                </>
+                              )}
+                              {booking.status === 'confirmed' && (
+                                <button
+                                  onClick={() => updateBookingStatus(booking.id, 'completed')}
+                                  className="text-blue-600 hover:text-blue-900 dark:hover:text-blue-400"
+                                  title="Mark as completed"
+                                >
+                                  <CheckCircle className="w-5 h-5" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </motion.tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </motion.div>
+          </>
+        )}
+
+        {/* Promotional Posts Tab */}
+        {activeTab === 'posts' && (
+          <>
+            {/* Add Post Button */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex justify-between items-center mb-6"
+            >
+              <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
+                Promotional Posts
+              </h2>
+              <button
+                onClick={() => {
+                  setEditingPost(null);
+                  setPostForm({
+                    title: '',
+                    description: '',
+                    image_url: '',
+                    button_text: '',
+                    button_link: '',
+                    display_order: 0
+                  });
+                  setShowPostModal(true);
+                }}
+                className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
               >
-                <option value="all">All Status</option>
-                <option value="pending">Pending</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-            </div>
-          </div>
-        </motion.div>
+                <Plus className="w-4 h-4" />
+                <span>Add New Post</span>
+              </button>
+            </motion.div>
 
-        {/* Bookings Table */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden"
-        >
-          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-            <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
-              Recent Bookings ({filteredBookings.length})
-            </h2>
-          </div>
-
-          {isLoading ? (
-            <div className="p-8 text-center">
-              <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-              <p className="text-gray-600 dark:text-gray-300">Loading bookings...</p>
-            </div>
-          ) : filteredBookings.length === 0 ? (
-            <div className="p-8 text-center">
-              <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 dark:text-gray-300">No bookings found</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 dark:bg-gray-700">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Customer
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Service
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Route
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Date & Time
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Price
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {filteredBookings.map((booking, index) => (
-                    <motion.tr
-                      key={booking.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      className="hover:bg-gray-50 dark:hover:bg-gray-700"
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900 dark:text-white">
-                            {booking.customer_name}
-                          </div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">
-                            {booking.customer_phone}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900 dark:text-white">
-                          {booking.service_type === 'outstation' ? 'Outstation' : 'Mumbai Local'}
-                        </div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">
-                          {booking.car_type}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900 dark:text-white">
-                          {booking.from_location}
-                        </div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">
-                          → {booking.to_location}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900 dark:text-white">
-                          {new Date(booking.travel_date).toLocaleDateString()}
-                        </div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">
-                          {booking.travel_time}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">
-                          ₹{booking.estimated_price.toLocaleString()}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(booking.status)}`}>
-                          {booking.status}
+            {/* Posts Grid */}
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {promotionalPosts.map((post, index) => (
+                <motion.div
+                  key={post.id}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: index * 0.1 }}
+                  className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden"
+                >
+                  {post.image_url && (
+                    <img
+                      src={post.image_url}
+                      alt={post.title}
+                      className="w-full h-48 object-cover"
+                    />
+                  )}
+                  <div className="p-6">
+                    <div className="flex items-start justify-between mb-3">
+                      <h3 className="text-lg font-semibold text-gray-800 dark:text-white line-clamp-2">
+                        {post.title}
+                      </h3>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => togglePostStatus(post.id, post.is_active)}
+                          className={`p-1 rounded-full ${
+                            post.is_active ? 'text-green-600' : 'text-gray-400'
+                          }`}
+                          title={post.is_active ? 'Active' : 'Inactive'}
+                        >
+                          {post.is_active ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {post.description && (
+                      <p className="text-gray-600 dark:text-gray-300 text-sm mb-4 line-clamp-3">
+                        {post.description}
+                      </p>
+                    )}
+                    
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                          post.is_active 
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+                            : 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
+                        }`}>
+                          {post.is_active ? 'Active' : 'Inactive'}
                         </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-2">
-                          {booking.status === 'pending' && (
-                            <>
-                              <button
-                                onClick={() => updateBookingStatus(booking.id, 'confirmed')}
-                                className="text-green-600 hover:text-green-900 dark:hover:text-green-400"
-                                title="Confirm booking"
-                              >
-                                <CheckCircle className="w-5 h-5" />
-                              </button>
-                              <button
-                                onClick={() => updateBookingStatus(booking.id, 'cancelled')}
-                                className="text-red-600 hover:text-red-900 dark:hover:text-red-400"
-                                title="Cancel booking"
-                              >
-                                <XCircle className="w-5 h-5" />
-                              </button>
-                            </>
-                          )}
-                          {booking.status === 'confirmed' && (
-                            <button
-                              onClick={() => updateBookingStatus(booking.id, 'completed')}
-                              className="text-blue-600 hover:text-blue-900 dark:hover:text-blue-400"
-                              title="Mark as completed"
-                            >
-                              <CheckCircle className="w-5 h-5" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </tbody>
-              </table>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          Order: {post.display_order}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => openEditModal(post)}
+                          className="p-2 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/20 rounded-full transition-colors"
+                          title="Edit post"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => deletePost(post.id)}
+                          className="p-2 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-full transition-colors"
+                          title="Delete post"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
             </div>
-          )}
-        </motion.div>
+
+            {promotionalPosts.length === 0 && (
+              <div className="text-center py-12">
+                <Megaphone className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-2">
+                  No promotional posts yet
+                </h3>
+                <p className="text-gray-600 dark:text-gray-300 mb-6">
+                  Create your first promotional post to engage customers
+                </p>
+                <button
+                  onClick={() => setShowPostModal(true)}
+                  className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+                >
+                  Create First Post
+                </button>
+              </div>
+            )}
+          </>
+        )}
 
         {/* Pricing Management Modal */}
         {showPricingModal && (
@@ -532,6 +836,136 @@ const AdminDashboard: React.FC = () => {
                   </button>
                 </div>
               </div>
+            </motion.div>
+          </div>
+        )}
+
+        {/* Post Management Modal */}
+        {showPostModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
+                  {editingPost ? 'Edit Post' : 'Create New Post'}
+                </h2>
+                <button
+                  onClick={() => setShowPostModal(false)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                >
+                  <XCircle className="w-6 h-6 text-gray-500" />
+                </button>
+              </div>
+
+              <form onSubmit={handlePostSubmit} className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Title *
+                  </label>
+                  <input
+                    type="text"
+                    value={postForm.title}
+                    onChange={(e) => setPostForm({ ...postForm, title: e.target.value })}
+                    className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                    placeholder="Enter post title"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Description
+                  </label>
+                  <textarea
+                    value={postForm.description}
+                    onChange={(e) => setPostForm({ ...postForm, description: e.target.value })}
+                    rows={3}
+                    className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white resize-none"
+                    placeholder="Enter post description"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Image URL
+                  </label>
+                  <div className="relative">
+                    <Image className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="url"
+                      value={postForm.image_url}
+                      onChange={(e) => setPostForm({ ...postForm, image_url: e.target.value })}
+                      className="w-full pl-10 pr-4 p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                      placeholder="https://example.com/image.jpg"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Button Text
+                    </label>
+                    <input
+                      type="text"
+                      value={postForm.button_text}
+                      onChange={(e) => setPostForm({ ...postForm, button_text: e.target.value })}
+                      className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                      placeholder="Learn More"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Button Link
+                    </label>
+                    <input
+                      type="url"
+                      value={postForm.button_link}
+                      onChange={(e) => setPostForm({ ...postForm, button_link: e.target.value })}
+                      className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                      placeholder="https://example.com"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Display Order
+                  </label>
+                  <input
+                    type="number"
+                    value={postForm.display_order}
+                    onChange={(e) => setPostForm({ ...postForm, display_order: parseInt(e.target.value) || 0 })}
+                    className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                    placeholder="0"
+                    min="0"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Lower numbers appear first
+                  </p>
+                </div>
+
+                <div className="flex justify-end space-x-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowPostModal(false)}
+                    className="px-6 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition-colors"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>{editingPost ? 'Update Post' : 'Create Post'}</span>
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}
