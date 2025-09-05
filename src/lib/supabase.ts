@@ -92,6 +92,44 @@ export type Database = {
           updated_at?: string;
         };
       };
+      promotional_posts: {
+        Row: {
+          id: string;
+          title: string;
+          description: string | null;
+          image_url: string | null;
+          button_text: string | null;
+          button_link: string | null;
+          is_active: boolean;
+          display_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          description?: string | null;
+          image_url?: string | null;
+          button_text?: string | null;
+          button_link?: string | null;
+          is_active?: boolean;
+          display_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          title?: string;
+          description?: string | null;
+          image_url?: string | null;
+          button_text?: string | null;
+          button_link?: string | null;
+          is_active?: boolean;
+          display_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
     };
   };
 };
