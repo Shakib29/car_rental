@@ -10,7 +10,8 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-const LOCATIONIQ_API_KEY = process.env.LOCATIONIQ_API_KEY;
+// This is the corrected line
+const LOCATIONIQ_API_KEY = process.env.VITE_LOCATIONIQ_PUBLIC_KEY;
 
 // ================= AUTOCOMPLETE =================
 app.get('/api/autocomplete', async (req, res) => {
