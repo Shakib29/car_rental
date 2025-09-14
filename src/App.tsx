@@ -17,24 +17,26 @@ import StickyBookButton from './components/StickyBookButton';
 function App() {
   return (
     <ThemeProvider>
-      <AdminProvider>
-        <Router>
-          <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
-            <Header />
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/services" element={<Services />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/contact" element={<Contact />} />
-              <Route path="/admin" element={<AdminLogin />} />
-              <Route path="/admin/dashboard" element={<AdminDashboard />} />
-            </Routes>
-            <Footer />
-            <StickyBookButton />
-            <Toaster position="top-right" />
-          </div>
-        </Router>
-      </AdminProvider>
+      <AuthProvider>
+        <AdminProvider>
+          <Router>
+            <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+              <Header />
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/services" element={<Services />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/contact" element={<Contact />} />
+                <Route path="/admin" element={<AdminLogin />} />
+                <Route path="/admin/dashboard" element={<AdminDashboard />} />
+              </Routes>
+              <Footer />
+              <StickyBookButton />
+              <Toaster position="top-right" />
+            </div>
+          </Router>
+        </AdminProvider>
+      </AuthProvider>
     </ThemeProvider>
   );
 }
