@@ -2,9 +2,13 @@ import React, { useState } from 'react';
 import { MapPin, Users, Clock, ArrowRight, User, Phone, Mail, Calendar, Navigation, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAdmin } from '../contexts/AdminContext';
+import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
-import LocationAutocomplete from './LocationAutocomplete';
+import GeoapifyAutocomplete from './GeoapifyAutocomplete';
+import RouteMap from './RouteMap';
+import FareBreakdown from './FareBreakdown';
+import { calculateRoute, getFareBreakdown, isAirportLocation } from '../lib/geoapify';
 
 interface BookingData {
   customerName: string;
@@ -37,34 +41,36 @@ const MumbaiLocalBooking: React.FC = () => {
   const [pickupCoords, setPickupCoords] = useState<LocationCoordinates | null>(null);
   const [dropCoords, setDropCoords] = useState<LocationCoordinates | null>(null);
   const [distance, setDistance] = useState<number>(0);
+  const [duration, setDuration] = useState<number>(0);
   const [isCalculating, setIsCalculating] = useState(false);
 
   const { pricing } = useAdmin();
+  const { user } = useAuth();
 
-  // Calculate distance using OpenRouteService API
-  const calculateDistance = async (pickup: LocationCoordinates, drop: LocationCoordinates) => {
+  // Calculate distance and duration using Geoapify API
+  const calculateRouteDetails = async (pickup: LocationCoordinates, drop: LocationCoordinates) => {
     setIsCalculating(true);
     try {
-      const response = await fetch(
-        `https://api.openrouteservice.org/v2/directions/driving-car?api_key=5b3ce3597851110001cf6248a1b8c8b8a9b84b8b8b8b8b8b8b8b8b8b&start=${pickup.lng},${pickup.lat}&end=${drop.lng},${drop.lat}`
+      const result = await calculateRoute(
+        { lat: pickup.lat, lon: pickup.lng },
+        { lat: drop.lat, lon: drop.lng }
       );
       
-      if (!response.ok) {
-        // Fallback to straight-line distance calculation
+      if (result) {
+        setDistance(result.distance);
+        setDuration(result.duration);
+      } else {
+        // Fallback to straight-line distance
         const straightDistance = calculateStraightLineDistance(pickup, drop);
         setDistance(straightDistance);
-        return;
+        setDuration(Math.round(straightDistance * 3)); // Rough estimate: 3 min per km
       }
-
-      const data = await response.json();
-      const distanceInMeters = data.features[0]?.properties?.segments?.[0]?.distance || 0;
-      const distanceInKm = Math.round((distanceInMeters / 1000) * 100) / 100;
-      setDistance(distanceInKm);
     } catch (error) {
-      console.error('Error calculating distance:', error);
+      console.error('Error calculating route:', error);
       // Fallback to straight-line distance
       const straightDistance = calculateStraightLineDistance(pickup, drop);
       setDistance(straightDistance);
+      setDuration(Math.round(straightDistance * 3));
     } finally {
       setIsCalculating(false);
     }
@@ -83,29 +89,19 @@ const MumbaiLocalBooking: React.FC = () => {
     return Math.round(R * c * 100) / 100;
   };
 
-  // Check if location is airport
-  const isAirportLocation = (location: string) => {
-    const airportKeywords = ['airport', 'terminal', 'chhatrapati shivaji', 'bom', 'mumbai airport'];
-    return airportKeywords.some(keyword => 
-      location.toLowerCase().includes(keyword.toLowerCase())
-    );
-  };
-
-  const getPrice = () => {
-    if (distance === 0) return 0;
+  const getFare = () => {
+    if (distance === 0) return null;
     
     const isAirportTrip = isAirportLocation(booking.pickup) || isAirportLocation(booking.drop);
-    const rate = isAirportTrip ? pricing.mumbaiLocal.airportRate : pricing.mumbaiLocal.baseRate;
-    
-    return Math.round(distance * rate);
+    return getFareBreakdown(distance, isAirportTrip);
   };
 
   const handlePickupChange = (value: string, coordinates?: LocationCoordinates) => {
     setBooking({ ...booking, pickup: value });
     if (coordinates) {
-      setPickupCoords(coordinates);
+      setPickupCoords({ lat: coordinates.lat, lng: coordinates.lon });
       if (dropCoords) {
-        calculateDistance(coordinates, dropCoords);
+        calculateRouteDetails({ lat: coordinates.lat, lng: coordinates.lon }, dropCoords);
       }
     }
   };
@@ -113,9 +109,9 @@ const MumbaiLocalBooking: React.FC = () => {
   const handleDropChange = (value: string, coordinates?: LocationCoordinates) => {
     setBooking({ ...booking, drop: value });
     if (coordinates) {
-      setDropCoords(coordinates);
+      setDropCoords({ lat: coordinates.lat, lng: coordinates.lon });
       if (pickupCoords) {
-        calculateDistance(pickupCoords, coordinates);
+        calculateRouteDetails(pickupCoords, { lat: coordinates.lat, lng: coordinates.lon });
       }
     }
   };
@@ -135,7 +131,7 @@ const MumbaiLocalBooking: React.FC = () => {
           car_type: booking.carType,
           travel_date: booking.date,
           travel_time: booking.time,
-          estimated_price: getPrice(),
+          estimated_price: getFare()?.total || 0,
           status: 'pending'
         });
 
@@ -167,11 +163,11 @@ const MumbaiLocalBooking: React.FC = () => {
       }
     });
     
-    const price = getPrice();
+    const fareDetails = getFare();
     const isAirportTrip = isAirportLocation(booking.pickup) || isAirportLocation(booking.drop);
     
     const message = encodeURIComponent(
-      `Mumbai Local Booking Request:\n\nCustomer: ${booking.customerName}\nPhone: ${booking.customerPhone}\nEmail: ${booking.customerEmail || 'Not provided'}\n\nPickup: ${booking.pickup}\nDrop: ${booking.drop}\nDistance: ${distance} km\nCar Type: ${booking.carType}\nDate: ${booking.date}\nTime: ${booking.time}\nService Type: ${isAirportTrip ? 'Airport Transfer' : 'Local Ride'}\nEstimated Price: ₹${price}\n\nPlease confirm my booking.`
+      `Mumbai Local Booking Request:\n\nCustomer: ${booking.customerName}\nPhone: ${booking.customerPhone}\nEmail: ${booking.customerEmail || 'Not provided'}\n\nPickup: ${booking.pickup}\nDrop: ${booking.drop}\nDistance: ${distance} km\nDuration: ${duration} min\nCar Type: ${booking.carType}\nDate: ${booking.date}\nTime: ${booking.time}\nService Type: ${isAirportTrip ? 'Airport Transfer' : 'Local Ride'}\nEstimated Price: ₹${fareDetails?.total || 0}\n\nPlease confirm my booking.`
     );
     
     window.open(`https://wa.me/919860146819?text=${message}`, '_blank');
@@ -230,10 +226,11 @@ const MumbaiLocalBooking: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  value={booking.customerName}
+                  value={user?.name || booking.customerName}
                   onChange={(e) => setBooking({ ...booking, customerName: e.target.value })}
                   className="w-full p-4 bg-white/60 dark:bg-gray-600/60 backdrop-blur-sm border border-gray-200/50 dark:border-gray-500/50 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300 placeholder-gray-400"
                   placeholder="Enter your full name"
+                  defaultValue={user?.name || ''}
                   required
                 />
               </div>
@@ -244,10 +241,11 @@ const MumbaiLocalBooking: React.FC = () => {
                 </label>
                 <input
                   type="tel"
-                  value={booking.customerPhone}
+                  value={user?.phone || booking.customerPhone}
                   onChange={(e) => setBooking({ ...booking, customerPhone: e.target.value })}
                   className="w-full p-4 bg-white/60 dark:bg-gray-600/60 backdrop-blur-sm border border-gray-200/50 dark:border-gray-500/50 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300 placeholder-gray-400"
                   placeholder="Enter your phone number"
+                  defaultValue={user?.phone || ''}
                   required
                 />
               </div>
@@ -259,10 +257,11 @@ const MumbaiLocalBooking: React.FC = () => {
               </label>
               <input
                 type="email"
-                value={booking.customerEmail}
+                value={user?.email || booking.customerEmail}
                 onChange={(e) => setBooking({ ...booking, customerEmail: e.target.value })}
                 className="w-full p-4 bg-white/60 dark:bg-gray-600/60 backdrop-blur-sm border border-gray-200/50 dark:border-gray-500/50 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300 placeholder-gray-400"
                 placeholder="Enter your email address"
+                defaultValue={user?.email || ''}
               />
             </div>
           </motion.div>
@@ -279,11 +278,12 @@ const MumbaiLocalBooking: React.FC = () => {
               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
                 Pickup Location *
               </label>
-              <LocationAutocomplete
+              <GeoapifyAutocomplete
                 value={booking.pickup}
                 onChange={handlePickupChange}
                 placeholder="Enter pickup location in Mumbai"
                 className="bg-white/60 dark:bg-gray-600/60 backdrop-blur-sm border-gray-200/50 dark:border-gray-500/50 focus:ring-green-500"
+                bias={{ lat: 19.0760, lon: 72.8777 }} // Mumbai coordinates
               />
             </div>
 
@@ -292,42 +292,60 @@ const MumbaiLocalBooking: React.FC = () => {
               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
                 Drop Location *
               </label>
-              <LocationAutocomplete
+              <GeoapifyAutocomplete
                 value={booking.drop}
                 onChange={handleDropChange}
                 placeholder="Enter drop location in Mumbai"
                 className="bg-white/60 dark:bg-gray-600/60 backdrop-blur-sm border-gray-200/50 dark:border-gray-500/50 focus:ring-green-500"
+                bias={{ lat: 19.0760, lon: 72.8777 }} // Mumbai coordinates
               />
             </div>
           </motion.div>
 
-          {/* Distance Display */}
-          {distance > 0 && (
+          {/* Route Map and Details */}
+          {(pickupCoords || dropCoords) && (
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200/50 dark:border-blue-700/50 rounded-2xl p-6"
+              className="grid lg:grid-cols-2 gap-6"
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="bg-blue-100 dark:bg-blue-800/50 p-2 rounded-xl">
-                    <MapPin className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <h4 className="font-display font-bold text-gray-900 dark:text-white">
-                      Distance: {distance} km
-                    </h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {isAirportLocation(booking.pickup) || isAirportLocation(booking.drop) 
-                        ? 'Airport transfer rate applied' 
-                        : 'Standard local rate applied'}
-                    </p>
+              {/* Route Map */}
+              <RouteMap
+                pickup={pickupCoords && booking.pickup ? {
+                  lat: pickupCoords.lat,
+                  lon: pickupCoords.lng,
+                  address: booking.pickup
+                } : undefined}
+                drop={dropCoords && booking.drop ? {
+                  lat: dropCoords.lat,
+                  lon: dropCoords.lng,
+                  address: booking.drop
+                } : undefined}
+              />
+              
+              {/* Fare Breakdown */}
+              {distance > 0 && !isCalculating && (
+                <FareBreakdown
+                  distance={distance}
+                  duration={duration}
+                  baseFare={getFare()?.baseFare || 0}
+                  distanceFare={getFare()?.distanceFare || 0}
+                  ratePerKm={getFare()?.ratePerKm || 0}
+                  total={getFare()?.total || 0}
+                  isAirportTrip={isAirportLocation(booking.pickup) || isAirportLocation(booking.drop)}
+                  isMinimumFare={getFare()?.isMinimumFare || false}
+                />
+              )}
+              
+              {/* Loading State */}
+              {isCalculating && (
+                <div className="bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm rounded-2xl p-8 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                    <p className="text-gray-600 dark:text-gray-300">Calculating route...</p>
                   </div>
                 </div>
-                {isCalculating && (
-                  <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                )}
-              </div>
+              )}
             </motion.div>
           )}
 
@@ -425,35 +443,6 @@ const MumbaiLocalBooking: React.FC = () => {
               </div>
             </div>
           </motion.div>
-
-          {/* Price Display */}
-          {getPrice() > 0 && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.7 }}
-              className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200/50 dark:border-green-700/50 rounded-2xl p-6"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-lg font-display font-bold text-gray-900 dark:text-white mb-1">
-                    Estimated Price
-                  </h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {distance} km × ₹{isAirportLocation(booking.pickup) || isAirportLocation(booking.drop) 
-                      ? pricing.mumbaiLocal.airportRate 
-                      : pricing.mumbaiLocal.baseRate}/km
-                  </p>
-                </div>
-                <div className="text-right">
-                  <div className="text-3xl font-display font-bold text-green-600 dark:text-green-400">
-                    ₹{getPrice().toLocaleString()}
-                  </div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">All inclusive</p>
-                </div>
-              </div>
-            </motion.div>
-          )}
 
           {/* Submit Button */}
           <motion.button

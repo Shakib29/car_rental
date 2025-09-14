@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Car, Menu, X, Sun, Moon, User, LogOut, Settings } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAdmin } from '../contexts/AdminContext';
+import { useAuth } from '../contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const Header: React.FC = () => {
@@ -11,6 +12,7 @@ const Header: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const { isDark, toggleTheme } = useTheme();
   const { admin, logout } = useAdmin();
+  const { user, isAdmin } = useAuth();
   const location = useLocation();
 
   const navItems = [
@@ -93,7 +95,7 @@ const Header: React.FC = () => {
           {/* Right Side Actions */}
           <div className="flex items-center space-x-4">
             {/* User Menu */}
-            {admin && (
+            {user && (
               <div className="relative hidden sm:block">
                 <button
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
@@ -101,7 +103,7 @@ const Header: React.FC = () => {
                 >
                   <User className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Admin
+                    {user.name || user.phone}
                   </span>
                 </button>
 
@@ -115,18 +117,22 @@ const Header: React.FC = () => {
                     >
                       <div className="p-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
                         <p className="text-sm font-medium text-gray-800 dark:text-white">
-                          Administrator
+                          {user.name || user.phone}
                         </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Admin Panel Access</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {isAdmin() ? 'Admin Panel Access' : 'Customer Account'}
+                        </p>
                       </div>
-                      <Link
-                        to="/admin/dashboard"
-                        onClick={() => setIsUserMenuOpen(false)}
-                        className="flex items-center space-x-2 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                      >
-                        <Settings className="w-4 h-4" />
-                        <span>Dashboard</span>
-                      </Link>
+                      {isAdmin() && (
+                        <Link
+                          to="/admin/dashboard"
+                          onClick={() => setIsUserMenuOpen(false)}
+                          className="flex items-center space-x-2 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        >
+                          <Settings className="w-4 h-4" />
+                          <span>Dashboard</span>
+                        </Link>
+                      )}
                       <button
                         onClick={() => {
                           logout();
@@ -143,12 +149,12 @@ const Header: React.FC = () => {
               </div>
             )}
 
-            {!admin && (
+            {!user && (
               <Link
                 to="/admin"
                 className="hidden sm:block bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-xl font-medium transition-colors"
               >
-                Admin
+                Login
               </Link>
             )}
 
