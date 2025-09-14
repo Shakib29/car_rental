@@ -1,11 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { MapPin, Search } from 'lucide-react';
 
 interface LocationResult {
-  display_name: string;
-  lat: string;
-  lon: string;
-  place_id: string;
+  name: string;
+  lat: number;
+  lng: number;
 }
 
 interface LocationAutocompleteProps {
@@ -34,14 +33,12 @@ const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
 
     setIsLoading(true);
     try {
-      // Using Nominatim API for geocoding
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}, Mumbai, Maharashtra, India&limit=5&addressdetails=1`
-      );
-      const data = await response.json();
+      // 🔹 Call your backend (server.js -> LocationIQ)
+      const response = await fetch(`/api/autocomplete?query=${encodeURIComponent(query)}`);
+      const data: LocationResult[] = await response.json();
       setSuggestions(data);
     } catch (error) {
-      console.error('Error fetching locations:', error);
+      console.error('Error fetching locations from LocationIQ:', error);
       setSuggestions([]);
     } finally {
       setIsLoading(false);
@@ -53,7 +50,6 @@ const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
     onChange(newValue);
     setShowSuggestions(true);
 
-    // Debounce API calls
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
     }
@@ -64,9 +60,9 @@ const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
   };
 
   const handleSuggestionClick = (suggestion: LocationResult) => {
-    onChange(suggestion.display_name, {
-      lat: parseFloat(suggestion.lat),
-      lng: parseFloat(suggestion.lon)
+    onChange(suggestion.name, {
+      lat: suggestion.lat,
+      lng: suggestion.lng
     });
     setShowSuggestions(false);
     setSuggestions([]);
@@ -82,14 +78,16 @@ const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
-        
+
         try {
-          // Reverse geocoding to get address
+          // 🔹 Reverse geocode via LocationIQ
           const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+            `https://us1.locationiq.com/v1/reverse.php?key=${
+              import.meta.env.VITE_LOCATIONIQ_PUBLIC_KEY
+            }&lat=${latitude}&lon=${longitude}&format=json`
           );
           const data = await response.json();
-          
+
           onChange(data.display_name, { lat: latitude, lng: longitude });
         } catch (error) {
           console.error('Error getting current location:', error);
@@ -131,27 +129,25 @@ const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
         </button>
       </div>
 
-      {/* Loading indicator */}
       {isLoading && (
         <div className="absolute right-12 top-1/2 transform -translate-y-1/2">
           <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
         </div>
       )}
 
-      {/* Suggestions dropdown */}
       {showSuggestions && suggestions.length > 0 && (
         <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-          {suggestions.map((suggestion) => (
+          {suggestions.map((s, idx) => (
             <button
-              key={suggestion.place_id}
+              key={idx}
               type="button"
-              onClick={() => handleSuggestionClick(suggestion)}
+              onClick={() => handleSuggestionClick(s)}
               className="w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-600 border-b border-gray-200 dark:border-gray-600 last:border-b-0"
             >
               <div className="flex items-start space-x-2">
                 <MapPin className="w-4 h-4 text-gray-400 mt-1 flex-shrink-0" />
                 <span className="text-sm text-gray-800 dark:text-white line-clamp-2">
-                  {suggestion.display_name}
+                  {s.name}
                 </span>
               </div>
             </button>
