@@ -38,8 +38,14 @@ const LocationIQAutocomplete: React.FC<LocationAutocompleteProps> = ({
         throw new Error(`API error: ${response.status}`);
       }
 
-      const data: LocationResult[] = await response.json();
-      setSuggestions(data);
+      const data = await response.json();
+      // Correcting the mapping to match the backend response
+      const mappedSuggestions = data.map((item) => ({
+        display_name: item.name,
+        lat: item.lat,
+        lon: item.lng,
+      }));
+      setSuggestions(mappedSuggestions);
     } catch (error) {
       console.error('Error fetching locations from LocationIQ:', error);
       setSuggestions([]);
@@ -85,7 +91,7 @@ const LocationIQAutocomplete: React.FC<LocationAutocompleteProps> = ({
           const response = await fetch(
             `https://us1.locationiq.com/v1/reverse.php?key=${
               import.meta.env.VITE_LOCATIONIQ_PUBLIC_KEY
-            }&lat=${latitude}&lon=${longitude}&format=json`
+            }&lat=${latitude}&lon=${longitude}&format=json&countrycodes=in` // Added for better accuracy
           );
 
           if (!response.ok) throw new Error(`Reverse geocode failed: ${response.status}`);
