@@ -24,6 +24,7 @@ const LocationIQAutocomplete: React.FC<LocationAutocompleteProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout>();
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const searchLocations = async (query: string) => {
     if (query.length < 3) {
@@ -39,7 +40,6 @@ const LocationIQAutocomplete: React.FC<LocationAutocompleteProps> = ({
       }
 
       const data = await response.json();
-      // Correcting the mapping to match the backend response
       const mappedSuggestions = data.map((item) => ({
         display_name: item.name,
         lat: item.lat,
@@ -66,18 +66,22 @@ const LocationIQAutocomplete: React.FC<LocationAutocompleteProps> = ({
   };
 
   const handleSuggestionClick = (suggestion: LocationResult) => {
+    // This is where we update the parent state with the selected value
     onChange(suggestion.display_name, {
       lat: parseFloat(suggestion.lat),
       lng: parseFloat(suggestion.lon)
     });
-    setShowSuggestions(false);
+    // Immediately clear suggestions and hide the dropdown
     setSuggestions([]);
+    setShowSuggestions(false);
+    // Focus the input to allow user to continue interacting
+    if (inputRef.current) {
+        inputRef.current.focus();
+    }
   };
 
   const getCurrentLocation = () => {
     if (!navigator.geolocation) {
-      // NOTE: Using a custom modal or message box is better than alert()
-      // as per the instructions provided in the prompt.
       alert('Geolocation is not supported by this browser');
       return;
     }
@@ -91,7 +95,7 @@ const LocationIQAutocomplete: React.FC<LocationAutocompleteProps> = ({
           const response = await fetch(
             `https://us1.locationiq.com/v1/reverse.php?key=${
               import.meta.env.VITE_LOCATIONIQ_PUBLIC_KEY
-            }&lat=${latitude}&lon=${longitude}&format=json&countrycodes=in` // Added for better accuracy
+            }&lat=${latitude}&lon=${longitude}&format=json&countrycodes=in`
           );
 
           if (!response.ok) throw new Error(`Reverse geocode failed: ${response.status}`);
@@ -107,7 +111,6 @@ const LocationIQAutocomplete: React.FC<LocationAutocompleteProps> = ({
       },
       (error) => {
         console.error('Error getting location:', error);
-        // NOTE: Using a custom modal or message box is better than alert()
         alert('Unable to get your current location');
         setIsLoading(false);
       }
@@ -119,6 +122,7 @@ const LocationIQAutocomplete: React.FC<LocationAutocompleteProps> = ({
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
         <input
+          ref={inputRef}
           type="text"
           value={value}
           onChange={handleInputChange}
@@ -151,7 +155,7 @@ const LocationIQAutocomplete: React.FC<LocationAutocompleteProps> = ({
             <button
               key={idx}
               type="button"
-              onClick={() => handleSuggestionClick(s)}
+              onMouseDown={() => handleSuggestionClick(s)}
               className="w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-600 border-b border-gray-200 dark:border-gray-600 last:border-b-0"
             >
               <div className="flex items-start space-x-2">
