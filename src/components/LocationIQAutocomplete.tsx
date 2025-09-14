@@ -14,7 +14,7 @@ interface LocationAutocompleteProps {
   className?: string;
 }
 
-const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
+const LocationIQAutocomplete: React.FC<LocationAutocompleteProps> = ({
   value,
   onChange,
   placeholder,
