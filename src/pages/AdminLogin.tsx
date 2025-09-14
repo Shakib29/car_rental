@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Shield, User, Lock, LogIn } from 'lucide-react';
 import { useAdmin } from '../contexts/AdminContext';
-import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
@@ -14,37 +13,27 @@ const AdminLogin: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const { login, admin } = useAdmin();
-  const { login: authLogin, user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (admin?.isAuthenticated || (user && user.role === 'admin')) {
+    if (admin?.isAuthenticated) {
       navigate('/admin/dashboard');
     }
-  }, [admin, user, navigate]);
+  }, [admin, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      // Try admin login first
-      const adminResult = await login(formData.username, formData.password);
-      if (adminResult.success) {
-        toast.success('Admin login successful!');
-        navigate('/admin/dashboard');
-        return;
-      }
-      
-      // Try auth login for regular users with admin role
-      const authResult = await authLogin(formData.username, formData.password);
-      if (authResult.success && user?.role === 'admin') {
-        toast.success('Admin login successful!');
-        navigate('/admin/dashboard');
-        return;
-      }
+      const result = await login(formData.username, formData.password);
 
-      toast.error('Invalid admin credentials');
+      if (result.success) {
+        toast.success('Admin login successful!');
+        navigate('/admin/dashboard');
+      } else {
+        toast.error(result.error || 'Invalid credentials');
+      }
     } catch (error) {
       toast.error('Something went wrong. Please try again.');
     } finally {
@@ -70,10 +59,10 @@ const AdminLogin: React.FC = () => {
             <Shield className="w-10 h-10 text-blue-600" />
           </motion.div>
           <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">
-            Admin Login
+            Admin Access
           </h1>
           <p className="text-gray-600 dark:text-gray-300">
-            Secure access to RideMax admin dashboard
+            Secure login to RideMax admin dashboard
           </p>
         </div>
 
@@ -82,7 +71,7 @@ const AdminLogin: React.FC = () => {
           {/* Username */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Username / Phone
+              Username
             </label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -91,7 +80,7 @@ const AdminLogin: React.FC = () => {
                 value={formData.username}
                 onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                placeholder="Enter username or phone number"
+                placeholder="Enter admin username"
                 required
               />
             </div>
@@ -109,7 +98,7 @@ const AdminLogin: React.FC = () => {
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                placeholder="Enter password"
+                placeholder="Enter admin password"
                 required
               />
             </div>
@@ -128,7 +117,7 @@ const AdminLogin: React.FC = () => {
             ) : (
               <>
                 <LogIn className="w-5 h-5" />
-                <span>Login</span>
+                <span>Access Dashboard</span>
               </>
             )}
           </motion.button>
@@ -137,7 +126,7 @@ const AdminLogin: React.FC = () => {
         {/* Demo Credentials */}
         <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
           <p className="text-xs text-gray-600 dark:text-gray-400 text-center mb-2">
-            Demo Admin Credentials:
+            Demo Credentials:
           </p>
           <div className="text-xs text-gray-700 dark:text-gray-300 text-center space-y-1">
             <div>Username: <span className="font-mono bg-gray-200 dark:bg-gray-600 px-1 rounded">admin</span></div>

@@ -1,14 +1,10 @@
 import React, { useState } from 'react';
-import { MapPin, Users, Clock, ArrowRight, User, Phone, Mail, Calendar, Navigation, Zap } from 'lucide-react';
+import { MapPin, Users, Clock, ArrowRight, User, Phone, Mail, Navigation } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAdmin } from '../contexts/AdminContext';
-import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
-import GeoapifyAutocomplete from './GeoapifyAutocomplete';
-import RouteMap from './RouteMap';
-import FareBreakdown from './FareBreakdown';
-import { calculateRoute, getFareBreakdown, isAirportLocation } from '../lib/geoapify';
+import LocationAutocomplete from './LocationAutocomplete';
 
 interface BookingData {
   customerName: string;
@@ -41,36 +37,34 @@ const MumbaiLocalBooking: React.FC = () => {
   const [pickupCoords, setPickupCoords] = useState<LocationCoordinates | null>(null);
   const [dropCoords, setDropCoords] = useState<LocationCoordinates | null>(null);
   const [distance, setDistance] = useState<number>(0);
-  const [duration, setDuration] = useState<number>(0);
   const [isCalculating, setIsCalculating] = useState(false);
 
   const { pricing } = useAdmin();
-  const { user } = useAuth();
 
-  // Calculate distance and duration using Geoapify API
-  const calculateRouteDetails = async (pickup: LocationCoordinates, drop: LocationCoordinates) => {
+  // Calculate distance using OpenRouteService API
+  const calculateDistance = async (pickup: LocationCoordinates, drop: LocationCoordinates) => {
     setIsCalculating(true);
     try {
-      const result = await calculateRoute(
-        { lat: pickup.lat, lon: pickup.lng },
-        { lat: drop.lat, lon: drop.lng }
+      const response = await fetch(
+        `https://api.openrouteservice.org/v2/directions/driving-car?api_key=5b3ce3597851110001cf6248a1b8c8b8a9b84b8b8b8b8b8b8b8b8b8b&start=${pickup.lng},${pickup.lat}&end=${drop.lng},${drop.lat}`
       );
       
-      if (result) {
-        setDistance(result.distance);
-        setDuration(result.duration);
-      } else {
-        // Fallback to straight-line distance
+      if (!response.ok) {
+        // Fallback to straight-line distance calculation
         const straightDistance = calculateStraightLineDistance(pickup, drop);
         setDistance(straightDistance);
-        setDuration(Math.round(straightDistance * 3)); // Rough estimate: 3 min per km
+        return;
       }
+
+      const data = await response.json();
+      const distanceInMeters = data.features[0]?.properties?.segments?.[0]?.distance || 0;
+      const distanceInKm = Math.round((distanceInMeters / 1000) * 100) / 100;
+      setDistance(distanceInKm);
     } catch (error) {
-      console.error('Error calculating route:', error);
+      console.error('Error calculating distance:', error);
       // Fallback to straight-line distance
       const straightDistance = calculateStraightLineDistance(pickup, drop);
       setDistance(straightDistance);
-      setDuration(Math.round(straightDistance * 3));
     } finally {
       setIsCalculating(false);
     }
@@ -89,19 +83,29 @@ const MumbaiLocalBooking: React.FC = () => {
     return Math.round(R * c * 100) / 100;
   };
 
-  const getFare = () => {
-    if (distance === 0) return null;
+  // Check if location is airport
+  const isAirportLocation = (location: string) => {
+    const airportKeywords = ['airport', 'terminal', 'chhatrapati shivaji', 'bom', 'mumbai airport'];
+    return airportKeywords.some(keyword => 
+      location.toLowerCase().includes(keyword.toLowerCase())
+    );
+  };
+
+  const getPrice = () => {
+    if (distance === 0) return 0;
     
     const isAirportTrip = isAirportLocation(booking.pickup) || isAirportLocation(booking.drop);
-    return getFareBreakdown(distance, isAirportTrip);
+    const rate = isAirportTrip ? pricing.mumbaiLocal.airportRate : pricing.mumbaiLocal.baseRate;
+    
+    return Math.round(distance * rate);
   };
 
   const handlePickupChange = (value: string, coordinates?: LocationCoordinates) => {
     setBooking({ ...booking, pickup: value });
     if (coordinates) {
-      setPickupCoords({ lat: coordinates.lat, lng: coordinates.lon });
+      setPickupCoords(coordinates);
       if (dropCoords) {
-        calculateRouteDetails({ lat: coordinates.lat, lng: coordinates.lon }, dropCoords);
+        calculateDistance(coordinates, dropCoords);
       }
     }
   };
@@ -109,9 +113,9 @@ const MumbaiLocalBooking: React.FC = () => {
   const handleDropChange = (value: string, coordinates?: LocationCoordinates) => {
     setBooking({ ...booking, drop: value });
     if (coordinates) {
-      setDropCoords({ lat: coordinates.lat, lng: coordinates.lon });
+      setDropCoords(coordinates);
       if (pickupCoords) {
-        calculateRouteDetails(pickupCoords, { lat: coordinates.lat, lng: coordinates.lon });
+        calculateDistance(pickupCoords, coordinates);
       }
     }
   };
@@ -131,7 +135,7 @@ const MumbaiLocalBooking: React.FC = () => {
           car_type: booking.carType,
           travel_date: booking.date,
           travel_time: booking.time,
-          estimated_price: getFare()?.total || 0,
+          estimated_price: getPrice(),
           status: 'pending'
         });
 
@@ -163,11 +167,11 @@ const MumbaiLocalBooking: React.FC = () => {
       }
     });
     
-    const fareDetails = getFare();
+    const price = getPrice();
     const isAirportTrip = isAirportLocation(booking.pickup) || isAirportLocation(booking.drop);
     
     const message = encodeURIComponent(
-      `Mumbai Local Booking Request:\n\nCustomer: ${booking.customerName}\nPhone: ${booking.customerPhone}\nEmail: ${booking.customerEmail || 'Not provided'}\n\nPickup: ${booking.pickup}\nDrop: ${booking.drop}\nDistance: ${distance} km\nDuration: ${duration} min\nCar Type: ${booking.carType}\nDate: ${booking.date}\nTime: ${booking.time}\nService Type: ${isAirportTrip ? 'Airport Transfer' : 'Local Ride'}\nEstimated Price: ₹${fareDetails?.total || 0}\n\nPlease confirm my booking.`
+      `Mumbai Local Booking Request:\n\nCustomer: ${booking.customerName}\nPhone: ${booking.customerPhone}\nEmail: ${booking.customerEmail || 'Not provided'}\n\nPickup: ${booking.pickup}\nDrop: ${booking.drop}\nDistance: ${distance} km\nCar Type: ${booking.carType}\nDate: ${booking.date}\nTime: ${booking.time}\nService Type: ${isAirportTrip ? 'Airport Transfer' : 'Local Ride'}\nEstimated Price: ₹${price}\n\nPlease confirm my booking.`
     );
     
     window.open(`https://wa.me/919860146819?text=${message}`, '_blank');
@@ -175,297 +179,231 @@ const MumbaiLocalBooking: React.FC = () => {
   };
 
   return (
-    <div className="max-w-5xl mx-auto">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="text-center mb-12"
-      >
-        <div className="inline-flex items-center space-x-2 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 px-4 py-2 rounded-full text-sm font-medium mb-6">
-          <Navigation className="w-4 h-4" />
-          <span>Mumbai Local Service</span>
-        </div>
-        <h2 className="text-3xl sm:text-4xl font-display font-bold text-gray-900 dark:text-white mb-4">
-          Mumbai Local Rides
+    <div className="max-w-4xl mx-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8">
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6 flex items-center">
+          <Navigation className="w-6 h-6 mr-2 text-green-600" />
+          Mumbai Local Services
         </h2>
-        <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-          Quick and convenient rides within Mumbai with real-time pricing and GPS tracking
-        </p>
-      </motion.div>
 
-      {/* Glassmorphism Booking Form */}
-      <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="relative bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-3xl p-8 md:p-12 shadow-glass"
-      >
-        {/* Background Gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-green-50/50 to-emerald-50/50 dark:from-green-900/10 dark:to-emerald-900/10 rounded-3xl"></div>
-        
-        <form onSubmit={handleSubmit} className="relative z-10 space-y-8">
+        <form onSubmit={handleSubmit} className="space-y-6">
           {/* Customer Information */}
-          <motion.div
-            initial={{ opacity: 0, x: -30 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 }}
-            className="bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm rounded-2xl p-6 border border-white/30 dark:border-gray-600/30"
-          >
-            <h3 className="text-xl font-display font-bold text-gray-900 dark:text-white mb-6 flex items-center">
-              <div className="bg-green-100 dark:bg-green-900/30 p-2 rounded-xl mr-3">
-                <User className="w-5 h-5 text-green-600 dark:text-green-400" />
-              </div>
+          <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+              <User className="w-5 h-5 mr-2 text-blue-600" />
               Customer Information
             </h3>
             
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Full Name *
                 </label>
                 <input
                   type="text"
-                  value={user?.name || booking.customerName}
+                  value={booking.customerName}
                   onChange={(e) => setBooking({ ...booking, customerName: e.target.value })}
-                  className="w-full p-4 bg-white/60 dark:bg-gray-600/60 backdrop-blur-sm border border-gray-200/50 dark:border-gray-500/50 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300 placeholder-gray-400"
+                  className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-600 dark:text-white"
                   placeholder="Enter your full name"
-                  defaultValue={user?.name || ''}
                   required
                 />
               </div>
               
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Phone Number *
                 </label>
                 <input
                   type="tel"
-                  value={user?.phone || booking.customerPhone}
+                  value={booking.customerPhone}
                   onChange={(e) => setBooking({ ...booking, customerPhone: e.target.value })}
-                  className="w-full p-4 bg-white/60 dark:bg-gray-600/60 backdrop-blur-sm border border-gray-200/50 dark:border-gray-500/50 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300 placeholder-gray-400"
+                  className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-600 dark:text-white"
                   placeholder="Enter your phone number"
-                  defaultValue={user?.phone || ''}
                   required
                 />
               </div>
             </div>
             
-            <div className="mt-6">
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Email Address (Optional)
               </label>
               <input
                 type="email"
-                value={user?.email || booking.customerEmail}
+                value={booking.customerEmail}
                 onChange={(e) => setBooking({ ...booking, customerEmail: e.target.value })}
-                className="w-full p-4 bg-white/60 dark:bg-gray-600/60 backdrop-blur-sm border border-gray-200/50 dark:border-gray-500/50 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300 placeholder-gray-400"
+                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-600 dark:text-white"
                 placeholder="Enter your email address"
-                defaultValue={user?.email || ''}
               />
             </div>
-          </motion.div>
+          </div>
 
-          {/* Location Selection */}
-          <motion.div
-            initial={{ opacity: 0, x: 30 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.4 }}
-            className="grid md:grid-cols-2 gap-6"
-          >
+          <div className="grid md:grid-cols-2 gap-6">
             {/* Pickup Location */}
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Pickup Location *
               </label>
-              <GeoapifyAutocomplete
+              <LocationAutocomplete
                 value={booking.pickup}
                 onChange={handlePickupChange}
                 placeholder="Enter pickup location in Mumbai"
-                className="bg-white/60 dark:bg-gray-600/60 backdrop-blur-sm border-gray-200/50 dark:border-gray-500/50 focus:ring-green-500"
-                bias={{ lat: 19.0760, lon: 72.8777 }} // Mumbai coordinates
               />
             </div>
 
             {/* Drop Location */}
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Drop Location *
               </label>
-              <GeoapifyAutocomplete
+              <LocationAutocomplete
                 value={booking.drop}
                 onChange={handleDropChange}
                 placeholder="Enter drop location in Mumbai"
-                className="bg-white/60 dark:bg-gray-600/60 backdrop-blur-sm border-gray-200/50 dark:border-gray-500/50 focus:ring-green-500"
-                bias={{ lat: 19.0760, lon: 72.8777 }} // Mumbai coordinates
               />
             </div>
-          </motion.div>
+          </div>
 
-          {/* Route Map and Details */}
-          {(pickupCoords || dropCoords) && (
+          {/* Distance Display */}
+          {distance > 0 && (
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="grid lg:grid-cols-2 gap-6"
+              className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4"
             >
-              {/* Route Map */}
-              <RouteMap
-                pickup={pickupCoords && booking.pickup ? {
-                  lat: pickupCoords.lat,
-                  lon: pickupCoords.lng,
-                  address: booking.pickup
-                } : undefined}
-                drop={dropCoords && booking.drop ? {
-                  lat: dropCoords.lat,
-                  lon: dropCoords.lng,
-                  address: booking.drop
-                } : undefined}
-              />
-              
-              {/* Fare Breakdown */}
-              {distance > 0 && !isCalculating && (
-                <FareBreakdown
-                  distance={distance}
-                  duration={duration}
-                  baseFare={getFare()?.baseFare || 0}
-                  distanceFare={getFare()?.distanceFare || 0}
-                  ratePerKm={getFare()?.ratePerKm || 0}
-                  total={getFare()?.total || 0}
-                  isAirportTrip={isAirportLocation(booking.pickup) || isAirportLocation(booking.drop)}
-                  isMinimumFare={getFare()?.isMinimumFare || false}
-                />
-              )}
-              
-              {/* Loading State */}
-              {isCalculating && (
-                <div className="bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm rounded-2xl p-8 flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                    <p className="text-gray-600 dark:text-gray-300">Calculating route...</p>
-                  </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <MapPin className="w-5 h-5 text-blue-600" />
+                  <span className="text-lg font-medium text-gray-800 dark:text-white">
+                    Distance: {distance} km
+                  </span>
                 </div>
-              )}
+                {isCalculating && (
+                  <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                )}
+              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                {isAirportLocation(booking.pickup) || isAirportLocation(booking.drop) 
+                  ? 'Airport transfer rate applied' 
+                  : 'Standard local rate applied'}
+              </p>
             </motion.div>
           )}
 
-          {/* Car Type Selection */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="space-y-4"
-          >
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
-              Select Car Type *
+          {/* Car Type */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Car Type
             </label>
             <div className="grid sm:grid-cols-2 gap-4">
               {(['4-seater', '6-seater'] as const).map(type => (
                 <motion.div
                   key={type}
                   whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className={`relative p-6 rounded-2xl cursor-pointer transition-all duration-300 ${
+                  className={`p-4 border-2 rounded-lg cursor-pointer transition-colors ${
                     booking.carType === type
-                      ? 'bg-green-50 dark:bg-green-900/30 border-2 border-green-500 shadow-lg'
-                      : 'bg-white/50 dark:bg-gray-700/50 border-2 border-gray-200/50 dark:border-gray-600/50 hover:border-green-300 dark:hover:border-green-600'
+                      ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20'
+                      : 'border-gray-300 dark:border-gray-600 hover:border-blue-400'
                   }`}
                   onClick={() => setBooking({ ...booking, carType: type })}
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className={`p-3 rounded-xl ${booking.carType === type ? 'bg-green-100 dark:bg-green-800/50' : 'bg-gray-100 dark:bg-gray-600'}`}>
-                        <Users className={`w-6 h-6 ${booking.carType === type ? 'text-green-600 dark:text-green-400' : 'text-gray-600 dark:text-gray-300'}`} />
-                      </div>
-                      <div>
-                        <h4 className={`font-display font-bold ${booking.carType === type ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-white'}`}>
-                          {type}
-                        </h4>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {type === '4-seater' ? 'Perfect for small groups' : 'Ideal for families'}
-                        </p>
-                      </div>
+                    <div className="flex items-center">
+                      <Users className="w-5 h-5 mr-2 text-blue-600" />
+                      <span className="font-medium text-gray-800 dark:text-white">
+                        {type}
+                      </span>
                     </div>
-                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                      booking.carType === type 
-                        ? 'border-green-500 bg-green-500' 
-                        : 'border-gray-300 dark:border-gray-600'
-                    }`}>
-                      {booking.carType === type && (
-                        <div className="w-2 h-2 bg-white rounded-full"></div>
-                      )}
-                    </div>
+                    <input
+                      type="radio"
+                      checked={booking.carType === type}
+                      onChange={() => setBooking({ ...booking, carType: type })}
+                      className="text-blue-600"
+                    />
                   </div>
                 </motion.div>
               ))}
             </div>
-          </motion.div>
+          </div>
 
-          {/* Date and Time */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
-            className="grid md:grid-cols-2 gap-6"
-          >
+          <div className="grid md:grid-cols-2 gap-6">
             {/* Date */}
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Travel Date *
               </label>
-              <div className="relative">
-                <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="date"
-                  value={booking.date}
-                  onChange={(e) => setBooking({ ...booking, date: e.target.value })}
-                  min={new Date().toISOString().split('T')[0]}
-                  className="w-full pl-12 pr-4 p-4 bg-white/60 dark:bg-gray-600/60 backdrop-blur-sm border border-gray-200/50 dark:border-gray-500/50 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300"
-                  required
-                />
-              </div>
+              <input
+                type="date"
+                value={booking.date}
+                onChange={(e) => setBooking({ ...booking, date: e.target.value })}
+                min={new Date().toISOString().split('T')[0]}
+                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                required
+              />
             </div>
 
             {/* Time */}
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Pickup Time *
               </label>
-              <div className="relative">
-                <Clock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="time"
-                  value={booking.time}
-                  onChange={(e) => setBooking({ ...booking, time: e.target.value })}
-                  className="w-full pl-12 pr-4 p-4 bg-white/60 dark:bg-gray-600/60 backdrop-blur-sm border border-gray-200/50 dark:border-gray-500/50 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300"
-                  required
-                />
-              </div>
+              <input
+                type="time"
+                value={booking.time}
+                onChange={(e) => setBooking({ ...booking, time: e.target.value })}
+                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                required
+              />
             </div>
-          </motion.div>
+          </div>
+
+          {/* Price Display */}
+          {getPrice() > 0 && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-4"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-lg font-medium text-gray-800 dark:text-white">
+                    Estimated Price:
+                  </span>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {distance} km × ₹{isAirportLocation(booking.pickup) || isAirportLocation(booking.drop) 
+                      ? pricing.mumbaiLocal.airportRate 
+                      : pricing.mumbaiLocal.baseRate}/km
+                  </p>
+                </div>
+                <span className="text-2xl font-bold text-green-600 dark:text-green-400">
+                  ₹{getPrice().toLocaleString()}
+                </span>
+              </div>
+            </motion.div>
+          )}
 
           {/* Submit Button */}
           <motion.button
-            whileHover={{ scale: 1.02, boxShadow: "0 20px 40px rgba(34, 197, 94, 0.3)" }}
+            whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             type="submit"
             disabled={distance === 0 || isCalculating}
-            className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 disabled:from-gray-400 disabled:to-gray-500 text-white py-5 rounded-2xl font-display font-bold text-xl flex items-center justify-center space-x-3 transition-all duration-300 shadow-xl disabled:cursor-not-allowed"
+            className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white py-4 rounded-lg font-semibold text-lg flex items-center justify-center space-x-2 transition-colors shadow-lg"
           >
             {isCalculating ? (
               <>
-                <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 <span>Calculating...</span>
               </>
             ) : (
               <>
                 <span>Book via WhatsApp</span>
-                <ArrowRight className="w-6 h-6" />
+                <ArrowRight className="w-5 h-5" />
               </>
             )}
           </motion.button>
         </form>
-      </motion.div>
+      </div>
     </div>
   );
 };
