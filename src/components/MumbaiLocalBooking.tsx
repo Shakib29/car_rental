@@ -49,7 +49,7 @@ const MumbaiLocalBooking: React.FC = () => {
     setIsCalculating(true);
     try {
       const response = await fetch(
-        `/api/directions?start=${pickup.lng},${pickup.lat}&end=${drop.lng},${drop.lat}`
+        `/api/directions?start=${pickup.lat},${pickup.lng}&end=${drop.lat},${drop.lng}`
       );
       
       if (response.ok) {
@@ -60,7 +60,7 @@ const MumbaiLocalBooking: React.FC = () => {
         throw new Error(`API error: ${response.status}`);
       }
     } catch (error) {
-      console.error('Error calculating route:', error);
+      console.error('Error calculating route with LocationIQ:', error);
       // Fallback to straight-line distance
       const straightDistance = calculateStraightLineDistance(pickup, drop);
       setDistance(straightDistance);
