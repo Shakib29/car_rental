@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 import GeoapifyAutocomplete from './GeoapifyAutocomplete';
 import RouteMap from './RouteMap';
 import FareBreakdown from './FareBreakdown';
-import { calculateRoute, getFareBreakdown, isAirportLocation } from '../lib/geoapify';
+import { getFareBreakdown, isAirportLocation } from '../lib/geoapify';
 
 interface BookingData {
   customerName: string;
@@ -44,37 +44,34 @@ const MumbaiLocalBooking: React.FC = () => {
   const [duration, setDuration] = useState<number>(0);
   const [isCalculating, setIsCalculating] = useState(false);
 
-  const { pricing } = useAdmin();
-  const { user } = useAuth();
-
-  // Calculate distance and duration using Geoapify API
+  // Calculate distance and duration using backend proxy
   const calculateRouteDetails = async (pickup: LocationCoordinates, drop: LocationCoordinates) => {
     setIsCalculating(true);
     try {
-      const result = await calculateRoute(
-        { lat: pickup.lat, lon: pickup.lng },
-        { lat: drop.lat, lon: drop.lng }
+      const response = await fetch(
+        `/api/directions?start=${pickup.lng},${pickup.lat}&end=${drop.lng},${drop.lat}`
       );
       
-      if (result) {
+      if (response.ok) {
+        const result = await response.json();
         setDistance(result.distance);
         setDuration(result.duration);
       } else {
-        // Fallback to straight-line distance
-        const straightDistance = calculateStraightLineDistance(pickup, drop);
-        setDistance(straightDistance);
-        setDuration(Math.round(straightDistance * 3)); // Rough estimate: 3 min per km
+        throw new Error(`API error: ${response.status}`);
       }
     } catch (error) {
       console.error('Error calculating route:', error);
       // Fallback to straight-line distance
       const straightDistance = calculateStraightLineDistance(pickup, drop);
       setDistance(straightDistance);
-      setDuration(Math.round(straightDistance * 3));
+      setDuration(Math.round(straightDistance * 3)); // Rough estimate: 3 min per km
     } finally {
       setIsCalculating(false);
     }
   };
+
+  const { pricing } = useAdmin();
+  const { user } = useAuth();
 
   // Fallback straight-line distance calculation
   const calculateStraightLineDistance = (pickup: LocationCoordinates, drop: LocationCoordinates) => {
