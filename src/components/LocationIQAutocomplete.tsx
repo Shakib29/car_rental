@@ -1,3 +1,4 @@
+// locationiq.tsx (or whatever you named the file)
 import React, { useState, useRef } from 'react';
 import { MapPin, Search } from 'lucide-react';
 
@@ -33,6 +34,7 @@ const LocationIQAutocomplete: React.FC<LocationAutocompleteProps> = ({
 
     setIsLoading(true);
     try {
+      // NOTE: This call is to your backend proxy, so the key is handled there.
       const response = await fetch(`/api/autocomplete?query=${encodeURIComponent(query)}`);
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`);
@@ -50,7 +52,7 @@ const LocationIQAutocomplete: React.FC<LocationAutocompleteProps> = ({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
-    onChange(newValue); // keep typing visible
+    onChange(newValue);
     setShowSuggestions(true);
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -80,9 +82,10 @@ const LocationIQAutocomplete: React.FC<LocationAutocompleteProps> = ({
         const { latitude, longitude } = position.coords;
 
         try {
+          // NOTE: This call is to the LocationIQ API directly, so it needs the key.
           const response = await fetch(
             `https://us1.locationiq.com/v1/reverse.php?key=${
-              import.meta.env.VITE_LOCATIONIQ_PUBLIC_KEY
+              import.meta.env.VITE_LOCATIONIQ_PUBLIC_KEY // <-- Correct Variable Name
             }&lat=${latitude}&lon=${longitude}&format=json`
           );
 
