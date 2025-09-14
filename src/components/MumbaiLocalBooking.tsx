@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { Navigation, User, Phone, Mail, Calendar, Clock, Users } from 'lucide-react';
+import { Navigation } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAdmin } from '../contexts/AdminContext';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
-import LocationIQAutocomplete from './LocationIQAutocomplete';
 import RouteMap from './RouteMap';
 import FareBreakdown from './FareBreakdown';
 import { getFareBreakdown, isAirportLocation } from '../lib/geoapify';
@@ -47,6 +46,74 @@ const MumbaiLocalBooking: React.FC = () => {
   const { pricing } = useAdmin();
   const { user } = useAuth();
 
+  // ---------------------------
+  // Inline LocationIQ Autocomplete
+  // ---------------------------
+  const LocationIQAutocomplete = ({
+    value,
+    onChange,
+    placeholder
+  }: {
+    value: string;
+    onChange: (val: string, coords?: LocationCoordinates) => void;
+    placeholder?: string;
+  }) => {
+    const [suggestions, setSuggestions] = useState<any[]>([]);
+
+    const fetchSuggestions = async (query: string) => {
+      if (!query) return;
+      try {
+        const res = await fetch(
+          `https://api.locationiq.com/v1/autocomplete?key=${
+            import.meta.env.VITE_LOCATIONIQ_API_KEY
+          }&q=${encodeURIComponent(query)}&limit=5&countrycodes=in`
+        );
+        const data = await res.json();
+        if (Array.isArray(data)) setSuggestions(data);
+        else setSuggestions([]);
+      } catch (err) {
+        console.error('Error fetching locations from LocationIQ:', err);
+        setSuggestions([]);
+      }
+    };
+
+    return (
+      <div className="relative">
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => {
+            onChange(e.target.value);
+            fetchSuggestions(e.target.value);
+          }}
+          placeholder={placeholder || 'Search location'}
+          className="w-full p-3 border rounded-lg"
+        />
+        {suggestions.length > 0 && (
+          <ul className="absolute bg-white border rounded-lg mt-1 w-full z-10 max-h-48 overflow-y-auto">
+            {suggestions.map((s, i) => (
+              <li
+                key={i}
+                className="p-2 hover:bg-gray-100 cursor-pointer"
+                onClick={() =>
+                  onChange(s.display_name, {
+                    lat: parseFloat(s.lat),
+                    lng: parseFloat(s.lon)
+                  })
+                }
+              >
+                {s.display_name}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    );
+  };
+
+  // ---------------------------
+  // Distance Calculation
+  // ---------------------------
   const calculateStraightLineDistance = (pickup: LocationCoordinates, drop: LocationCoordinates) => {
     const R = 6371;
     const dLat = (drop.lat - pickup.lat) * Math.PI / 180;
