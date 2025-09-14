@@ -5,7 +5,7 @@ import { useAdmin } from '../contexts/AdminContext';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
-import LocationAutocomplete from './LocationAutocomplete';
+import LocationIQAutocomplete from './LocationIQAutocomplete';
 import RouteMap from './RouteMap';
 import FareBreakdown from './FareBreakdown';
 import { getFareBreakdown, isAirportLocation } from '../lib/geoapify';
