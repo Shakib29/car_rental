@@ -1,4 +1,3 @@
-// locationiq.tsx (or whatever you named the file)
 import React, { useState, useRef } from 'react';
 import { MapPin, Search } from 'lucide-react';
 
@@ -34,7 +33,6 @@ const LocationIQAutocomplete: React.FC<LocationAutocompleteProps> = ({
 
     setIsLoading(true);
     try {
-      // NOTE: This call is to your backend proxy, so the key is handled there.
       const response = await fetch(`/api/autocomplete?query=${encodeURIComponent(query)}`);
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`);
@@ -72,6 +70,8 @@ const LocationIQAutocomplete: React.FC<LocationAutocompleteProps> = ({
 
   const getCurrentLocation = () => {
     if (!navigator.geolocation) {
+      // NOTE: Using a custom modal or message box is better than alert()
+      // as per the instructions provided in the prompt.
       alert('Geolocation is not supported by this browser');
       return;
     }
@@ -82,10 +82,9 @@ const LocationIQAutocomplete: React.FC<LocationAutocompleteProps> = ({
         const { latitude, longitude } = position.coords;
 
         try {
-          // NOTE: This call is to the LocationIQ API directly, so it needs the key.
           const response = await fetch(
             `https://us1.locationiq.com/v1/reverse.php?key=${
-              import.meta.env.VITE_LOCATIONIQ_PUBLIC_KEY // <-- Correct Variable Name
+              import.meta.env.VITE_LOCATIONIQ_PUBLIC_KEY
             }&lat=${latitude}&lon=${longitude}&format=json`
           );
 
@@ -102,6 +101,7 @@ const LocationIQAutocomplete: React.FC<LocationAutocompleteProps> = ({
       },
       (error) => {
         console.error('Error getting location:', error);
+        // NOTE: Using a custom modal or message box is better than alert()
         alert('Unable to get your current location');
         setIsLoading(false);
       }
