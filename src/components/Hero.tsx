@@ -13,11 +13,7 @@ const Hero: React.FC = () => {
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {/* Background Image with Overlay */}
       <div className="absolute inset-0 z-0">
-        <img
-          src="https://images.pexels.com/photos/378570/pexels-photo-378570.jpeg?auto=compress&cs=tinysrgb&w=1920"
-          alt="Premium cab in city"
-          className="w-full h-full object-cover"
-        />
+       
         <div className="absolute inset-0 bg-gradient-to-r from-navy-900/90 via-navy-800/80 to-primary-900/70"></div>
         <div className="absolute inset-0 bg-gradient-to-t from-navy-900/50 to-transparent"></div>
       </div>
