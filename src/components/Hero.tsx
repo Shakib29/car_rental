@@ -44,6 +44,8 @@ const Hero: React.FC = () => {
       {/* Content */}
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="text-center max-w-5xl mx-auto">
+          {/* Badge - This section has been removed to fix the overlap. */}
+
           {/* Main Heading */}
           <motion.h1
             initial={{ opacity: 0, y: 30 }}
