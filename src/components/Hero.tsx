@@ -39,7 +39,8 @@ const Hero: React.FC = () => {
       {/* Content */}
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="text-center max-w-5xl mx-auto">
-          {/* Badge */}
+          {/* Badge - THIS IS THE SECTION YOU WANT TO REMOVE OR COMMENT OUT */}
+          {/*
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -49,6 +50,7 @@ const Hero: React.FC = () => {
             <Star className="w-5 h-5 text-yellow-400 fill-current" />
             <span className="text-white font-medium">4.8+ Rating • 10,000+ Happy Customers</span>
           </motion.div>
+          */}
 
           {/* Main Heading */}
           <motion.h1
