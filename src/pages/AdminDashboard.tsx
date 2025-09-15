@@ -55,6 +55,7 @@ interface PromotionalPost {
 
 const AdminDashboard: React.FC = () => {
   const { admin, logout, pricing, updatePricing } = useAdmin();
+  const { addCity, removeCity } = useAdmin();
   const navigate = useNavigate();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
@@ -64,8 +65,10 @@ const AdminDashboard: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showPricingModal, setShowPricingModal] = useState(false);
   const [showPostModal, setShowPostModal] = useState(false);
+  const [showCityModal, setShowCityModal] = useState(false);
   const [editingPost, setEditingPost] = useState<PromotionalPost | null>(null);
   const [tempPricing, setTempPricing] = useState(pricing);
+  const [newCity, setNewCity] = useState('');
   const [activeTab, setActiveTab] = useState<'bookings' | 'posts'>('bookings');
 
   const [postForm, setPostForm] = useState({
@@ -314,6 +317,13 @@ const AdminDashboard: React.FC = () => {
             >
               <Settings className="w-4 h-4" />
               <span>Manage Pricing</span>
+            </button>
+            <button
+              onClick={() => setShowCityModal(true)}
+              className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Manage Cities</span>
             </button>
             <button
               onClick={logout}
@@ -780,7 +790,7 @@ const AdminDashboard: React.FC = () => {
                     Mumbai Local Pricing (Per KM)
                   </h3>
                   <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-                    <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="grid sm:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
                           Base Rate (₹/km)
@@ -815,6 +825,23 @@ const AdminDashboard: React.FC = () => {
                           className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-blue-500 dark:bg-gray-600 dark:text-white"
                         />
                       </div>
+                      <div>
+                        <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+                          6-Seater Surcharge (₹)
+                        </label>
+                        <input
+                          type="number"
+                          value={tempPricing.mumbaiLocal.sixSeaterSurcharge}
+                          onChange={(e) => setTempPricing(prev => ({
+                            ...prev,
+                            mumbaiLocal: {
+                              ...prev.mumbaiLocal,
+                              sixSeaterSurcharge: parseInt(e.target.value) || 0
+                            }
+                          }))}
+                          className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-blue-500 dark:bg-gray-600 dark:text-white"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -835,6 +862,98 @@ const AdminDashboard: React.FC = () => {
                     <span>Save Changes</span>
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {/* City Management Modal */}
+        {showCityModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
+                  Manage Cities
+                </h2>
+                <button
+                  onClick={() => setShowCityModal(false)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                >
+                  <XCircle className="w-6 h-6 text-gray-500" />
+                </button>
+              </div>
+
+              {/* Add New City */}
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+                  Add New City
+                </h3>
+                <div className="flex gap-4">
+                  <input
+                    type="text"
+                    value={newCity}
+                    onChange={(e) => setNewCity(e.target.value)}
+                    placeholder="Enter city name"
+                    className="flex-1 p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  />
+                  <button
+                    onClick={() => {
+                      if (newCity.trim() && !pricing.cities.includes(newCity.trim())) {
+                        addCity(newCity.trim());
+                        setNewCity('');
+                        toast.success('City added successfully');
+                      } else {
+                        toast.error('City already exists or invalid name');
+                      }
+                    }}
+                    className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+                  >
+                    Add City
+                  </button>
+                </div>
+              </div>
+
+              {/* Current Cities */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+                  Current Cities
+                </h3>
+                <div className="grid gap-3">
+                  {pricing.cities.map((city, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
+                    >
+                      <span className="font-medium text-gray-800 dark:text-white">
+                        {city}
+                      </span>
+                      <button
+                        onClick={() => {
+                          if (confirm(`Are you sure you want to remove ${city}?`)) {
+                            removeCity(city);
+                            toast.success('City removed successfully');
+                          }
+                        }}
+                        className="p-2 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-full transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end mt-6">
+                <button
+                  onClick={() => setShowCityModal(false)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors"
+                >
+                  Done
+                </button>
               </div>
             </motion.div>
           </div>

@@ -98,30 +98,34 @@ export const calculateRoute = async (
 };
 
 // Fare calculation utilities
-export const calculateFare = (distance: number, isAirportTrip: boolean = false): number => {
+export const calculateFare = (distance: number, isAirportTrip: boolean = false, carType: '4-seater' | '6-seater' = '4-seater', sixSeaterSurcharge: number = 200): number => {
   const baseFare = 50; // Base fare in rupees
   const ratePerKm = isAirportTrip ? 18 : 15; // Rate per km
   const minFare = 100; // Minimum fare
   
   const distanceFare = distance * ratePerKm;
-  const totalFare = baseFare + distanceFare;
+  const carSurcharge = carType === '6-seater' ? sixSeaterSurcharge : 0;
+  const totalFare = baseFare + distanceFare + carSurcharge;
   
   return Math.max(totalFare, minFare);
 };
 
-export const getFareBreakdown = (distance: number, isAirportTrip: boolean = false) => {
+export const getFareBreakdown = (distance: number, isAirportTrip: boolean = false, carType: '4-seater' | '6-seater' = '4-seater', sixSeaterSurcharge: number = 200) => {
   const baseFare = 50;
   const ratePerKm = isAirportTrip ? 18 : 15;
   const distanceFare = distance * ratePerKm;
-  const subtotal = baseFare + distanceFare;
+  const carSurcharge = carType === '6-seater' ? sixSeaterSurcharge : 0;
+  const subtotal = baseFare + distanceFare + carSurcharge;
   const minFare = 100;
   const total = Math.max(subtotal, minFare);
   
   return {
     baseFare,
     distanceFare: Math.round(distanceFare),
+    carSurcharge,
     ratePerKm,
     distance,
+    carType,
     subtotal: Math.round(subtotal),
     total: Math.round(total),
     isMinimumFare: total === minFare

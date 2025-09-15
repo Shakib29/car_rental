@@ -16,7 +16,9 @@ interface PricingConfig {
   mumbaiLocal: {
     baseRate: number;
     airportRate: number;
+    sixSeaterSurcharge: number;
   };
+  cities: string[];
 }
 
 interface AdminContextType {
@@ -25,6 +27,8 @@ interface AdminContextType {
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   updatePricing: (newPricing: PricingConfig) => void;
+  addCity: (city: string) => void;
+  removeCity: (city: string) => void;
 }
 
 const AdminContext = createContext<AdminContextType | undefined>(undefined);
@@ -48,8 +52,10 @@ const defaultPricing: PricingConfig = {
   },
   mumbaiLocal: {
     baseRate: 15, // per km
-    airportRate: 18 // per km for airport transfers
-  }
+    airportRate: 18, // per km for airport transfers
+    sixSeaterSurcharge: 200 // additional charge for 6-seater cars
+  },
+  cities: ['Mumbai', 'Pune', 'Surat', 'Nashik']
 };
 
 export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -95,8 +101,26 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     localStorage.setItem('ridemax_pricing', JSON.stringify(newPricing));
   };
 
+  const addCity = (city: string) => {
+    const newPricing = {
+      ...pricing,
+      cities: [...pricing.cities, city]
+    };
+    setPricing(newPricing);
+    localStorage.setItem('ridemax_pricing', JSON.stringify(newPricing));
+  };
+
+  const removeCity = (city: string) => {
+    const newPricing = {
+      ...pricing,
+      cities: pricing.cities.filter(c => c !== city)
+    };
+    setPricing(newPricing);
+    localStorage.setItem('ridemax_pricing', JSON.stringify(newPricing));
+  };
+
   return (
-    <AdminContext.Provider value={{ admin, pricing, login, logout, updatePricing }}>
+    <AdminContext.Provider value={{ admin, pricing, login, logout, updatePricing, addCity, removeCity }}>
       {children}
     </AdminContext.Provider>
   );

@@ -29,7 +29,7 @@ const OutstationBooking: React.FC = () => {
   });
   const { pricing } = useAdmin();
 
-  const cities = ['Mumbai', 'Pune', 'Surat', 'Nashik'];
+  const cities = pricing.cities;
   
   const getPrice = () => {
     if (!booking.from || !booking.to || booking.from === booking.to) return 0;

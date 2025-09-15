@@ -7,7 +7,9 @@ interface FareBreakdownProps {
   duration: number;
   baseFare: number;
   distanceFare: number;
+  carSurcharge?: number;
   ratePerKm: number;
+  carType?: string;
   total: number;
   isAirportTrip?: boolean;
   isMinimumFare?: boolean;
@@ -19,7 +21,9 @@ const FareBreakdown: React.FC<FareBreakdownProps> = ({
   duration,
   baseFare,
   distanceFare,
+  carSurcharge = 0,
   ratePerKm,
+  carType = '4-seater',
   total,
   isAirportTrip = false,
   isMinimumFare = false,
@@ -74,6 +78,15 @@ const FareBreakdown: React.FC<FareBreakdownProps> = ({
           </span>
           <span className="font-medium text-gray-800 dark:text-white">₹{distanceFare}</span>
         </div>
+        
+        {carSurcharge > 0 && (
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600 dark:text-gray-300">
+              {carType} Surcharge
+            </span>
+            <span className="font-medium text-gray-800 dark:text-white">₹{carSurcharge}</span>
+          </div>
+        )}
         
         {isMinimumFare && (
           <div className="flex justify-between items-center text-orange-600 dark:text-orange-400">

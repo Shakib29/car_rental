@@ -135,19 +135,17 @@ const Hero: React.FC = () => {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 1 }}
-            className="mt-16 flex flex-wrap justify-center items-center gap-8 opacity-70"
+            className="mt-16 grid grid-cols-1 sm:grid-cols-3 gap-8 opacity-70 max-w-2xl mx-auto"
           >
-            <div className="text-center">
+            <div className="text-center px-4">
               <div className="text-2xl font-bold text-white">10K+</div>
               <div className="text-sm text-gray-300">Happy Customers</div>
             </div>
-            <div className="w-px h-8 bg-white/30"></div>
-            <div className="text-center">
+            <div className="text-center px-4 border-l border-r border-white/30 sm:border-l sm:border-r-0">
               <div className="text-2xl font-bold text-white">8+</div>
               <div className="text-sm text-gray-300">Years Experience</div>
             </div>
-            <div className="w-px h-8 bg-white/30"></div>
-            <div className="text-center">
+            <div className="text-center px-4">
               <div className="text-2xl font-bold text-white">4.8★</div>
               <div className="text-sm text-gray-300">Average Rating</div>
             </div>
