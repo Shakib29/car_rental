@@ -10,7 +10,9 @@ const Hero: React.FC = () => {
   };
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+    // The pt-16 class adds padding to the top, pushing the content down
+    // to clear the navigation bar. You may need to adjust this value.
+    <section className="relative min-h-screen pt-16 flex items-center justify-center overflow-hidden">
       {/* Background Image with Overlay */}
       <div className="absolute inset-0 z-0">
         <img
@@ -44,7 +46,16 @@ const Hero: React.FC = () => {
       {/* Content */}
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="text-center max-w-5xl mx-auto">
-          {/* Badge - This section has been removed to fix the overlap. */}
+          {/* Badge */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="inline-flex items-center space-x-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-full px-6 py-3 mb-8"
+          >
+            <Star className="w-5 h-5 text-yellow-400 fill-current" />
+            <span className="text-white font-medium">4.8+ Rating • 10,000+ Happy Customers</span>
+          </motion.div>
 
           {/* Main Heading */}
           <motion.h1
