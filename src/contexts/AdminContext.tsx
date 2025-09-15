@@ -18,6 +18,7 @@ interface PricingConfig {
     airportRate: number;
     sixSeaterSurcharge: number;
   };
+  outstationSixSeaterSurcharge: number;
   cities: string[];
 }
 
@@ -29,6 +30,9 @@ interface AdminContextType {
   updatePricing: (newPricing: PricingConfig) => void;
   addCity: (city: string) => void;
   removeCity: (city: string) => void;
+  addRoute: (fromCity: string, toCity: string, fourSeaterPrice: number, sixSeaterPrice: number) => void;
+  updateRoute: (routeKey: string, fourSeaterPrice: number, sixSeaterPrice: number) => void;
+  deleteRoute: (routeKey: string) => void;
 }
 
 const AdminContext = createContext<AdminContextType | undefined>(undefined);
@@ -55,6 +59,7 @@ const defaultPricing: PricingConfig = {
     airportRate: 18, // per km for airport transfers
     sixSeaterSurcharge: 200 // additional charge for 6-seater cars
   },
+  outstationSixSeaterSurcharge: 1000, // additional charge for 6-seater outstation cars
   cities: ['Mumbai', 'Pune', 'Surat', 'Nashik']
 };
 
@@ -119,8 +124,55 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     localStorage.setItem('ridemax_pricing', JSON.stringify(newPricing));
   };
 
+  const addRoute = (fromCity: string, toCity: string, fourSeaterPrice: number, sixSeaterPrice: number) => {
+    const routeKey = `${fromCity}-${toCity}`;
+    const reverseRouteKey = `${toCity}-${fromCity}`;
+    
+    // Check if route already exists (in either direction)
+    if (pricing.outstation[routeKey] || pricing.outstation[reverseRouteKey]) {
+      throw new Error('Route already exists');
+    }
+    
+    const newPricing = {
+      ...pricing,
+      outstation: {
+        ...pricing.outstation,
+        [routeKey]: {
+          '4-seater': fourSeaterPrice,
+          '6-seater': sixSeaterPrice
+        }
+      }
+    };
+    setPricing(newPricing);
+    localStorage.setItem('ridemax_pricing', JSON.stringify(newPricing));
+  };
+
+  const updateRoute = (routeKey: string, fourSeaterPrice: number, sixSeaterPrice: number) => {
+    const newPricing = {
+      ...pricing,
+      outstation: {
+        ...pricing.outstation,
+        [routeKey]: {
+          '4-seater': fourSeaterPrice,
+          '6-seater': sixSeaterPrice
+        }
+      }
+    };
+    setPricing(newPricing);
+    localStorage.setItem('ridemax_pricing', JSON.stringify(newPricing));
+  };
+
+  const deleteRoute = (routeKey: string) => {
+    const { [routeKey]: deletedRoute, ...remainingRoutes } = pricing.outstation;
+    const newPricing = {
+      ...pricing,
+      outstation: remainingRoutes
+    };
+    setPricing(newPricing);
+    localStorage.setItem('ridemax_pricing', JSON.stringify(newPricing));
+  };
   return (
-    <AdminContext.Provider value={{ admin, pricing, login, logout, updatePricing, addCity, removeCity }}>
+    <AdminContext.Provider value={{ admin, pricing, login, logout, updatePricing, addCity, removeCity, addRoute, updateRoute, deleteRoute }}>
       {children}
     </AdminContext.Provider>
   );

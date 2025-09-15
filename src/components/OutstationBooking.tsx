@@ -35,7 +35,14 @@ const OutstationBooking: React.FC = () => {
     if (!booking.from || !booking.to || booking.from === booking.to) return 0;
     const route = `${booking.from}-${booking.to}`;
     const reverseRoute = `${booking.to}-${booking.from}`;
-    return pricing.outstation[route]?.[booking.carType] || pricing.outstation[reverseRoute]?.[booking.carType] || 0;
+    const basePrice = pricing.outstation[route]?.[booking.carType] || pricing.outstation[reverseRoute]?.[booking.carType] || 0;
+    
+    // Add outstation 6-seater surcharge if applicable
+    if (booking.carType === '6-seater' && basePrice > 0) {
+      return basePrice + (pricing.outstationSixSeaterSurcharge || 0);
+    }
+    
+    return basePrice;
   };
 
   const saveBookingToDatabase = async () => {

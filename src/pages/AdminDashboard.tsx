@@ -54,8 +54,7 @@ interface PromotionalPost {
 }
 
 const AdminDashboard: React.FC = () => {
-  const { admin, logout, pricing, updatePricing } = useAdmin();
-  const { addCity, removeCity } = useAdmin();
+  const { admin, logout, pricing, updatePricing, addCity, removeCity, addRoute, updateRoute, deleteRoute } = useAdmin();
   const navigate = useNavigate();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
@@ -66,11 +65,19 @@ const AdminDashboard: React.FC = () => {
   const [showPricingModal, setShowPricingModal] = useState(false);
   const [showPostModal, setShowPostModal] = useState(false);
   const [showCityModal, setShowCityModal] = useState(false);
+  const [showRouteModal, setShowRouteModal] = useState(false);
   const [editingPost, setEditingPost] = useState<PromotionalPost | null>(null);
+  const [editingRoute, setEditingRoute] = useState<string | null>(null);
   const [tempPricing, setTempPricing] = useState(pricing);
   const [newCity, setNewCity] = useState('');
   const [activeTab, setActiveTab] = useState<'bookings' | 'posts'>('bookings');
 
+  const [routeForm, setRouteForm] = useState({
+    fromCity: '',
+    toCity: '',
+    fourSeaterPrice: 0,
+    sixSeaterPrice: 0
+  });
   const [postForm, setPostForm] = useState({
     title: '',
     description: '',
@@ -324,6 +331,22 @@ const AdminDashboard: React.FC = () => {
             >
               <Plus className="w-4 h-4" />
               <span>Manage Cities</span>
+            </button>
+            <button
+              onClick={() => {
+                setEditingRoute(null);
+                setRouteForm({
+                  fromCity: '',
+                  toCity: '',
+                  fourSeaterPrice: 0,
+                  sixSeaterPrice: 0
+                });
+                setShowRouteModal(true);
+              }}
+              className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Manage Routes</span>
             </button>
             <button
               onClick={logout}
@@ -732,10 +755,60 @@ const AdminDashboard: React.FC = () => {
                     <Edit3 className="w-5 h-5 mr-2 text-blue-600" />
                     Outstation Pricing
                   </h3>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      6-Seater Surcharge for Outstation (₹)
+                    </label>
+                    <input
+                      type="number"
+                      value={tempPricing.outstationSixSeaterSurcharge}
+                      onChange={(e) => setTempPricing(prev => ({
+                        ...prev,
+                        outstationSixSeaterSurcharge: parseInt(e.target.value) || 0
+                      }))}
+                      className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-blue-500 dark:bg-gray-600 dark:text-white"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Additional amount added to all 6-seater outstation bookings
+                    </p>
+                  </div>
                   <div className="grid gap-4">
                     {Object.entries(tempPricing.outstation).map(([route, prices]) => (
                       <div key={route} className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-                        <h4 className="font-medium text-gray-800 dark:text-white mb-3">{route}</h4>
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="font-medium text-gray-800 dark:text-white">{route}</h4>
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => {
+                                setEditingRoute(route);
+                                setRouteForm({
+                                  fromCity: route.split('-')[0],
+                                  toCity: route.split('-')[1],
+                                  fourSeaterPrice: prices['4-seater'],
+                                  sixSeaterPrice: prices['6-seater']
+                                });
+                                setShowRouteModal(true);
+                              }}
+                              className="p-1 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/20 rounded transition-colors"
+                              title="Edit route"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (confirm(`Are you sure you want to delete the route ${route}?`)) {
+                                  const newPricing = { ...tempPricing };
+                                  delete newPricing.outstation[route];
+                                  setTempPricing(newPricing);
+                                }
+                              }}
+                              className="p-1 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/20 rounded transition-colors"
+                              title="Delete route"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
                         <div className="grid sm:grid-cols-2 gap-4">
                           <div>
                             <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
@@ -781,6 +854,22 @@ const AdminDashboard: React.FC = () => {
                       </div>
                     ))}
                   </div>
+                  <button
+                    onClick={() => {
+                      setEditingRoute(null);
+                      setRouteForm({
+                        fromCity: '',
+                        toCity: '',
+                        fourSeaterPrice: 0,
+                        sixSeaterPrice: 0
+                      });
+                      setShowRouteModal(true);
+                    }}
+                    className="mt-4 flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add New Route</span>
+                  </button>
                 </div>
 
                 {/* Mumbai Local Pricing */}
@@ -955,6 +1044,159 @@ const AdminDashboard: React.FC = () => {
                   Done
                 </button>
               </div>
+            </motion.div>
+          </div>
+        )}
+        {showRouteModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
+                  {editingRoute ? 'Edit Route' : 'Add New Route'}
+                </h2>
+                <button
+                  onClick={() => setShowRouteModal(false)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                >
+                  <XCircle className="w-6 h-6 text-gray-500" />
+                </button>
+              </div>
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  try {
+                    if (editingRoute) {
+                      updateRoute(editingRoute, routeForm.fourSeaterPrice, routeForm.sixSeaterPrice);
+                      toast.success('Route updated successfully');
+                    } else {
+                      if (!routeForm.fromCity || !routeForm.toCity) {
+                        toast.error('Please select both cities');
+                        return;
+                      }
+                      if (routeForm.fromCity === routeForm.toCity) {
+                        toast.error('From and To cities must be different');
+                        return;
+                      }
+                      addRoute(routeForm.fromCity, routeForm.toCity, routeForm.fourSeaterPrice, routeForm.sixSeaterPrice);
+                      toast.success('Route added successfully');
+                    }
+                    setShowRouteModal(false);
+                    setTempPricing(pricing); // Refresh temp pricing
+                  } catch (error: any) {
+                    toast.error(error.message || 'Failed to save route');
+                  }
+                }}
+                className="space-y-6"
+              >
+                {!editingRoute && (
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        From City *
+                      </label>
+                      <select
+                        value={routeForm.fromCity}
+                        onChange={(e) => setRouteForm({ ...routeForm, fromCity: e.target.value })}
+                        className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                        required
+                      >
+                        <option value="">Select from city</option>
+                        {pricing.cities.map(city => (
+                          <option key={city} value={city}>{city}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        To City *
+                      </label>
+                      <select
+                        value={routeForm.toCity}
+                        onChange={(e) => setRouteForm({ ...routeForm, toCity: e.target.value })}
+                        className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                        required
+                      >
+                        <option value="">Select to city</option>
+                        {pricing.cities.filter(city => city !== routeForm.fromCity).map(city => (
+                          <option key={city} value={city}>{city}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                {editingRoute && (
+                  <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                    <h3 className="font-semibold text-blue-800 dark:text-blue-300 mb-2">
+                      Editing Route: {editingRoute}
+                    </h3>
+                    <p className="text-sm text-blue-600 dark:text-blue-400">
+                      You can only modify the pricing for this existing route.
+                    </p>
+                  </div>
+                )}
+
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      4-Seater Price (₹) *
+                    </label>
+                    <input
+                      type="number"
+                      value={routeForm.fourSeaterPrice}
+                      onChange={(e) => setRouteForm({ ...routeForm, fourSeaterPrice: parseInt(e.target.value) || 0 })}
+                      className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                      placeholder="Enter 4-seater price"
+                      min="0"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      6-Seater Price (₹) *
+                    </label>
+                    <input
+                      type="number"
+                      value={routeForm.sixSeaterPrice}
+                      onChange={(e) => setRouteForm({ ...routeForm, sixSeaterPrice: parseInt(e.target.value) || 0 })}
+                      className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                      placeholder="Enter 6-seater price"
+                      min="0"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg">
+                  <p className="text-sm text-yellow-800 dark:text-yellow-300">
+                    <strong>Note:</strong> The 6-seater price you set here is the base price. An additional surcharge of ₹{pricing.outstationSixSeaterSurcharge} will be automatically added during booking calculations.
+                  </p>
+                </div>
+
+                <div className="flex justify-end space-x-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowRouteModal(false)}
+                    className="px-6 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>{editingRoute ? 'Update Route' : 'Add Route'}</span>
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}
