@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 import RouteMap from './RouteMap';
 import FareBreakdown from './FareBreakdown';
 import { getFareBreakdown, isAirportLocation } from '../lib/geoapify';
-import LocationIQAutocomplete from './LocationIQAutocomplete';
+import GoogleMapsAutocomplete from './LocationIQAutocomplete';
 
 interface BookingData {
   customerName: string;
@@ -65,7 +65,7 @@ const MumbaiLocalBooking: React.FC = () => {
     setIsCalculating(true);
     try {
       const response = await fetch(
-        `/api/directions?start=${pickup.lat},${pickup.lng}&end=${drop.lat},${drop.lng}`
+        `/api/distance?origins=${pickup.lat},${pickup.lng}&destinations=${drop.lat},${drop.lng}`
       );
 
       if (response.ok) {
@@ -76,7 +76,7 @@ const MumbaiLocalBooking: React.FC = () => {
         throw new Error(`API error: ${response.status}`);
       }
     } catch (error) {
-      console.error('Error calculating route with LocationIQ:', error);
+      console.error('Error calculating route with Google Distance Matrix:', error);
       const straightDistance = calculateStraightLineDistance(pickup, drop);
       setDistance(straightDistance);
       setDuration(Math.round(straightDistance * 3));
@@ -247,7 +247,7 @@ const MumbaiLocalBooking: React.FC = () => {
           <div className="grid md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <label className="block text-sm font-semibold">Pickup Location *</label>
-              <LocationIQAutocomplete
+              <GoogleMapsAutocomplete
                 value={booking.pickup}
                 onChange={handlePickupChange}
                 placeholder="Enter pickup location in Mumbai"
@@ -255,7 +255,7 @@ const MumbaiLocalBooking: React.FC = () => {
             </div>
             <div className="space-y-2">
               <label className="block text-sm font-semibold">Drop Location *</label>
-              <LocationIQAutocomplete
+              <GoogleMapsAutocomplete
                 value={booking.drop}
                 onChange={handleDropChange}
                 placeholder="Enter drop location in Mumbai"

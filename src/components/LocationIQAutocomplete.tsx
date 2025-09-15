@@ -14,7 +14,7 @@ interface LocationAutocompleteProps {
   className?: string;
 }
 
-const LocationIQAutocomplete: React.FC<LocationAutocompleteProps> = ({
+const GoogleMapsAutocomplete: React.FC<LocationAutocompleteProps> = ({
   value,
   onChange,
   placeholder,
@@ -40,14 +40,14 @@ const LocationIQAutocomplete: React.FC<LocationAutocompleteProps> = ({
       }
 
       const data = await response.json();
-      const mappedSuggestions = data.map((item) => ({
+      const mappedSuggestions = data.map((item: any) => ({
         display_name: item.name,
         lat: item.lat,
         lon: item.lng,
       }));
       setSuggestions(mappedSuggestions);
     } catch (error) {
-      console.error('Error fetching locations from LocationIQ:', error);
+      console.error('Error fetching locations from Google Places:', error);
       setSuggestions([]);
     } finally {
       setIsLoading(false);
@@ -66,15 +66,12 @@ const LocationIQAutocomplete: React.FC<LocationAutocompleteProps> = ({
   };
 
   const handleSuggestionClick = (suggestion: LocationResult) => {
-    // This is where we update the parent state with the selected value
     onChange(suggestion.display_name, {
       lat: parseFloat(suggestion.lat),
       lng: parseFloat(suggestion.lon)
     });
-    // Immediately clear suggestions and hide the dropdown
     setSuggestions([]);
     setShowSuggestions(false);
-    // Focus the input to allow user to continue interacting
     if (inputRef.current) {
         inputRef.current.focus();
     }
@@ -92,16 +89,19 @@ const LocationIQAutocomplete: React.FC<LocationAutocompleteProps> = ({
         const { latitude, longitude } = position.coords;
 
         try {
+          // Use Google Geocoding API for reverse geocoding
           const response = await fetch(
-            `https://us1.locationiq.com/v1/reverse.php?key=${
-              import.meta.env.VITE_LOCATIONIQ_PUBLIC_KEY
-            }&lat=${latitude}&lon=${longitude}&format=json&countrycodes=in`
+            `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`
           );
 
           if (!response.ok) throw new Error(`Reverse geocode failed: ${response.status}`);
 
           const data = await response.json();
-          onChange(data.display_name, { lat: latitude, lng: longitude });
+          if (data.results && data.results.length > 0) {
+            onChange(data.results[0].formatted_address, { lat: latitude, lng: longitude });
+          } else {
+            onChange(`${latitude}, ${longitude}`, { lat: latitude, lng: longitude });
+          }
         } catch (error) {
           console.error('Error getting current location:', error);
           onChange(`${latitude}, ${longitude}`, { lat: latitude, lng: longitude });
@@ -172,4 +172,4 @@ const LocationIQAutocomplete: React.FC<LocationAutocompleteProps> = ({
   );
 };
 
-export default LocationIQAutocomplete;
+export default GoogleMapsAutocomplete;

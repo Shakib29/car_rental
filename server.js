@@ -10,8 +10,8 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// This is the corrected line
-const LOCATIONIQ_API_KEY = process.env.VITE_LOCATIONIQ_PUBLIC_KEY;
+// Google Maps API Key
+const GOOGLE_MAPS_API_KEY = process.env.VITE_GOOGLE_MAPS_API_KEY;
 
 // ================= AUTOCOMPLETE =================
 app.get('/api/autocomplete', async (req, res) => {
@@ -21,21 +21,35 @@ app.get('/api/autocomplete', async (req, res) => {
       return res.status(400).json({ error: 'Missing query parameter' });
     }
 
-    const url = `https://us1.locationiq.com/v1/autocomplete.php?key=${LOCATIONIQ_API_KEY}&q=${encodeURIComponent(query)}&limit=5&normalizecity=1`;
+    const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&key=${GOOGLE_MAPS_API_KEY}&components=country:in&types=geocode`;
 
     const response = await fetch(url);
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`LocationIQ Autocomplete error: ${response.status} - ${errorText}`);
+      throw new Error(`Google Places Autocomplete error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
 
-    const suggestions = data.map((item) => ({
-      name: item.display_name,
-      lat: parseFloat(item.lat),
-      lng: parseFloat(item.lon),
-    }));
+    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+      throw new Error(`Google Places API error: ${data.status}`);
+    }
+
+    const suggestions = await Promise.all(
+      (data.predictions || []).slice(0, 5).map(async (prediction) => {
+        // Get place details to fetch coordinates
+        const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${prediction.place_id}&fields=geometry&key=${GOOGLE_MAPS_API_KEY}`;
+        const detailsResponse = await fetch(detailsUrl);
+        const detailsData = await detailsResponse.json();
+        
+        return {
+          name: prediction.description,
+          lat: detailsData.result?.geometry?.location?.lat || 0,
+          lng: detailsData.result?.geometry?.location?.lng || 0,
+          place_id: prediction.place_id
+        };
+      })
+    );
 
     res.json(suggestions);
   } catch (error) {
@@ -44,51 +58,49 @@ app.get('/api/autocomplete', async (req, res) => {
   }
 });
 
-// ================= DIRECTIONS =================
-app.get('/api/directions', async (req, res) => {
+// ================= DISTANCE MATRIX =================
+app.get('/api/distance', async (req, res) => {
   try {
-    const { start, end } = req.query;
+    const { origins, destinations } = req.query;
     
-    if (!start || !end) {
-      return res.status(400).json({ error: 'Missing required parameters: start and end coordinates' });
+    if (!origins || !destinations) {
+      return res.status(400).json({ error: 'Missing required parameters: origins and destinations' });
     }
 
-    const startCoords = start.split(',');
-    const endCoords = end.split(',');
-    
-    if (startCoords.length !== 2 || endCoords.length !== 2) {
-      return res.status(400).json({ error: 'Invalid coordinate format. Use: lat,lng' });
-    }
-
-    const startLngLat = `${startCoords[1]},${startCoords[0]}`;
-    const endLngLat = `${endCoords[1]},${endCoords[0]}`;
-
-    const url = `https://us1.locationiq.com/v1/directions/driving/${startLngLat};${endLngLat}?key=${LOCATIONIQ_API_KEY}&overview=false&geometries=geojson`;
+    const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(origins)}&destinations=${encodeURIComponent(destinations)}&mode=driving&units=metric&key=${GOOGLE_MAPS_API_KEY}`;
     
     const response = await fetch(url);
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`LocationIQ API error: ${response.status} - ${errorText}`);
+      throw new Error(`Google Distance Matrix API error: ${response.status} - ${errorText}`);
     }
     
     const data = await response.json();
     
-    if (data.routes && data.routes.length > 0) {
-      const route = data.routes[0];
-      const distanceInKm = Math.round((route.distance / 1000) * 100) / 100;
-      const durationInMinutes = Math.round(route.duration / 60);
+    if (data.status !== 'OK') {
+      throw new Error(`Google Distance Matrix API error: ${data.status}`);
+    }
+    
+    if (data.rows && data.rows.length > 0 && data.rows[0].elements && data.rows[0].elements.length > 0) {
+      const element = data.rows[0].elements[0];
+      
+      if (element.status !== 'OK') {
+        return res.status(404).json({ error: 'No route found between the specified locations' });
+      }
+      
+      const distanceInKm = Math.round((element.distance.value / 1000) * 100) / 100;
+      const durationInMinutes = Math.round(element.duration.value / 60);
 
       res.json({
         distance: distanceInKm,
-        duration: durationInMinutes,
-        geometry: route.geometry
+        duration: durationInMinutes
       });
     } else {
-      res.status(404).json({ error: 'No route found between the specified coordinates' });
+      res.status(404).json({ error: 'No route found between the specified locations' });
     }
     
   } catch (error) {
-    console.error('LocationIQ proxy error:', error);
+    console.error('Google Distance Matrix proxy error:', error);
     res.status(500).json({ error: 'Failed to fetch route information', details: error.message });
   }
 });

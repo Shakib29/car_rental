@@ -1,103 +1,152 @@
-// Geoapify API configuration and utilities
-const GEOAPIFY_API_KEY = 'YOUR_GEOAPIFY_API_KEY'; // Replace with your actual API key
+// Google Maps API configuration and utilities
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
-export interface GeoapifyLocation {
-  properties: {
-    formatted: string;
-    address_line1?: string;
-    address_line2?: string;
-    city?: string;
-    state?: string;
-    postcode?: string;
-    country?: string;
-    lat: number;
-    lon: number;
-    place_id: string;
+export interface GooglePlacePrediction {
+  description: string;
+  place_id: string;
+  structured_formatting: {
+    main_text: string;
+    secondary_text: string;
   };
+}
+
+export interface GooglePlaceDetails {
   geometry: {
-    coordinates: [number, number]; // [longitude, latitude]
+    location: {
+      lat: number;
+      lng: number;
+    };
   };
 }
 
-export interface GeoapifyAutocompleteResponse {
-  features: GeoapifyLocation[];
+export interface GoogleAutocompleteResponse {
+  predictions: GooglePlacePrediction[];
+  status: string;
 }
 
-export interface GeoapifyRouteResponse {
-  features: Array<{
-    properties: {
-      segments: Array<{
-        distance: number; // in meters
-        duration: number; // in seconds
-      }>;
-    };
+export interface GoogleDistanceMatrixResponse {
+  rows: Array<{
+    elements: Array<{
+      distance: {
+        text: string;
+        value: number;
+      };
+      duration: {
+        text: string;
+        value: number;
+      };
+      status: string;
+    }>;
   }>;
+  status: string;
 }
 
-// Autocomplete API for location search
-export const searchLocations = async (query: string, bias?: { lat: number; lon: number }): Promise<GeoapifyLocation[]> => {
+// Autocomplete API for location search using Google Places
+export const searchLocations = async (query: string, bias?: { lat: number; lon: number }): Promise<any[]> => {
   if (!query || query.length < 3) return [];
 
   try {
-    let url = `https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(query)}&apiKey=${GEOAPIFY_API_KEY}&limit=5&format=json`;
+    let url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&key=${GOOGLE_MAPS_API_KEY}&components=country:in&types=geocode`;
     
-    // Add bias for Mumbai area if no specific bias provided
+    // Add location bias if provided
     if (bias) {
-      url += `&bias=proximity:${bias.lon},${bias.lat}`;
-    } else {
-      // Default bias to Mumbai coordinates
-      url += `&bias=proximity:72.8777,19.0760`;
+      url += `&location=${bias.lat},${bias.lon}&radius=50000`;
     }
-    
-    // Filter for India
-    url += `&filter=countrycode:in`;
 
     const response = await fetch(url);
     
     if (!response.ok) {
-      throw new Error(`Geoapify API error: ${response.status}`);
+      throw new Error(`Google Places API error: ${response.status}`);
     }
 
-    const data: GeoapifyAutocompleteResponse = await response.json();
-    return data.features || [];
+    const data: GoogleAutocompleteResponse = await response.json();
+    
+    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+      throw new Error(`Google Places API error: ${data.status}`);
+    }
+
+    // Get place details for each prediction to fetch coordinates
+    const locationsWithCoords = await Promise.all(
+      (data.predictions || []).slice(0, 5).map(async (prediction) => {
+        try {
+          const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${prediction.place_id}&fields=geometry&key=${GOOGLE_MAPS_API_KEY}`;
+          const detailsResponse = await fetch(detailsUrl);
+          const detailsData = await detailsResponse.json();
+          
+          return {
+            properties: {
+              formatted: prediction.description,
+              address_line1: prediction.structured_formatting.main_text,
+              address_line2: prediction.structured_formatting.secondary_text,
+              lat: detailsData.result?.geometry?.location?.lat || 0,
+              lon: detailsData.result?.geometry?.location?.lng || 0,
+              place_id: prediction.place_id,
+            },
+            geometry: {
+              coordinates: [
+                detailsData.result?.geometry?.location?.lng || 0,
+                detailsData.result?.geometry?.location?.lat || 0
+              ]
+            }
+          };
+        } catch (error) {
+          console.error('Error fetching place details:', error);
+          return null;
+        }
+      })
+    );
+
+    return locationsWithCoords.filter(location => location !== null);
   } catch (error) {
-    console.error('Error fetching locations from Geoapify:', error);
+    console.error('Error fetching locations from Google Places:', error);
     return [];
   }
 };
 
-// Routing API for distance and duration calculation
+// Distance calculation using Google Distance Matrix API
 export const calculateRoute = async (
   pickup: { lat: number; lon: number },
   drop: { lat: number; lon: number }
 ): Promise<{ distance: number; duration: number } | null> => {
   try {
-    const url = `https://api.geoapify.com/v1/routing?waypoints=${pickup.lat},${pickup.lon}|${drop.lat},${drop.lon}&mode=drive&apiKey=${GEOAPIFY_API_KEY}`;
+    const origins = `${pickup.lat},${pickup.lon}`;
+    const destinations = `${drop.lat},${drop.lon}`;
+    
+    const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(origins)}&destinations=${encodeURIComponent(destinations)}&mode=driving&units=metric&key=${GOOGLE_MAPS_API_KEY}`;
 
     const response = await fetch(url);
     
     if (!response.ok) {
-      throw new Error(`Geoapify Routing API error: ${response.status}`);
+      throw new Error(`Google Distance Matrix API error: ${response.status}`);
     }
 
-    const data: GeoapifyRouteResponse = await response.json();
+    const data: GoogleDistanceMatrixResponse = await response.json();
     
-    if (data.features && data.features.length > 0) {
-      const segment = data.features[0].properties.segments[0];
+    if (data.status !== 'OK') {
+      throw new Error(`Google Distance Matrix API error: ${data.status}`);
+    }
+    
+    if (data.rows && data.rows.length > 0 && data.rows[0].elements && data.rows[0].elements.length > 0) {
+      const element = data.rows[0].elements[0];
+      
+      if (element.status !== 'OK') {
+        return null;
+      }
+      
       return {
-        distance: Math.round((segment.distance / 1000) * 100) / 100, // Convert to km with 2 decimal places
-        duration: Math.round(segment.duration / 60) // Convert to minutes
+        distance: Math.round((element.distance.value / 1000) * 100) / 100, // Convert to km with 2 decimal places
+        duration: Math.round(element.duration.value / 60) // Convert to minutes
       };
     }
     
     return null;
   } catch (error) {
-    console.error('Error calculating route:', error);
+    console.error('Error calculating route with Google Distance Matrix:', error);
     return null;
   }
 };
 
-// Fare calculation utilities
+// Fare calculation utilities (unchanged)
 export const calculateFare = (distance: number, isAirportTrip: boolean = false, carType: '4-seater' | '6-seater' = '4-seater', sixSeaterSurcharge: number = 200): number => {
   const baseFare = 50; // Base fare in rupees
   const ratePerKm = isAirportTrip ? 18 : 15; // Rate per km
