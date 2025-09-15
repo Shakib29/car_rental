@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AdminProvider } from './contexts/AdminContext';
@@ -13,25 +13,40 @@ import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
 import StickyBookButton from './components/StickyBookButton';
 
+// A new component to handle conditional layout
+function AppLayout() {
+  const location = useLocation();
+  const isAdminRoute = location.pathname.startsWith('/admin');
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+      {/* Conditionally render the Header based on the route */}
+      {!isAdminRoute && <Header />}
+      
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/services" element={<Services />} />
+        <Route path="/contact" element={<Contact />} />
+        <Route path="/admin" element={<AdminLogin />} />
+        <Route path="/admin/dashboard" element={<AdminDashboard />} />
+      </Routes>
+      
+      {/* Conditionally render the Footer and StickyButton */}
+      {!isAdminRoute && <Footer />}
+      {!isAdminRoute && <StickyBookButton />}
+
+      <Toaster position="top-right" />
+    </div>
+  );
+}
+
 function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
         <AdminProvider>
           <Router>
-            <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
-              <Header />
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/services" element={<Services />} />
-                <Route path="/contact" element={<Contact />} />
-                <Route path="/admin" element={<AdminLogin />} />
-                <Route path="/admin/dashboard" element={<AdminDashboard />} />
-              </Routes>
-              <Footer />
-              <StickyBookButton />
-              <Toaster position="top-right" />
-            </div>
+            <AppLayout />
           </Router>
         </AdminProvider>
       </AuthProvider>
