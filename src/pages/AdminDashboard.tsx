@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  Users, 
-  Calendar, 
-  DollarSign, 
-  TrendingUp, 
-  CheckCircle, 
+import {
+  Users,
+  Calendar,
+  DollarSign,
+  TrendingUp,
+  CheckCircle,
   XCircle,
   Clock,
   Search,
@@ -154,7 +154,7 @@ const AdminDashboard: React.FC = () => {
     try {
       const { error } = await supabase
         .from('bookings')
-        .update({ 
+        .update({
           status: newStatus,
           updated_at: new Date().toISOString()
         })
@@ -162,9 +162,9 @@ const AdminDashboard: React.FC = () => {
 
       if (error) throw error;
 
-      setBookings(prev => 
-        prev.map(booking => 
-          booking.id === bookingId 
+      setBookings(prev =>
+        prev.map(booking =>
+          booking.id === bookingId
             ? { ...booking, status: newStatus as any }
             : booking
         )
@@ -178,7 +178,7 @@ const AdminDashboard: React.FC = () => {
 
   const handlePostSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     try {
       if (editingPost) {
         const { error } = await supabase
@@ -220,7 +220,7 @@ const AdminDashboard: React.FC = () => {
     try {
       const { error } = await supabase
         .from('promotional_posts')
-        .update({ 
+        .update({
           is_active: !currentStatus,
           updated_at: new Date().toISOString()
         })
@@ -665,17 +665,17 @@ const AdminDashboard: React.FC = () => {
                         </button>
                       </div>
                     </div>
-                    
+
                     {post.description && (
                       <p className="text-gray-600 dark:text-gray-300 text-sm mb-4 line-clamp-3">
                         {post.description}
                       </p>
                     )}
-                    
+
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
                         <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                          post.is_active 
+                          post.is_active
                             ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
                             : 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
                         }`}>
@@ -685,7 +685,7 @@ const AdminDashboard: React.FC = () => {
                           Order: {post.display_order}
                         </span>
                       </div>
-                      
+
                       <div className="flex items-center space-x-2">
                         <button
                           onClick={() => openEditModal(post)}
