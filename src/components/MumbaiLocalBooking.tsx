@@ -88,7 +88,7 @@ const MumbaiLocalBooking: React.FC = () => {
   const getFare = () => {
     if (distance === 0) return null;
     const isAirportTrip = isAirportLocation(booking.pickup) || isAirportLocation(booking.drop);
-    return getFareBreakdown(distance, isAirportTrip, booking.carType, pricing.mumbaiLocal.sixSeaterSurcharge);
+    return getFareBreakdown(distance, isAirportTrip, booking.carType, pricing.mumbaiLocal);
   };
 
   const handlePickupChange = (value: string, coordinates?: LocationCoordinates) => {

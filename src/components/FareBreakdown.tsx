@@ -68,25 +68,11 @@ const FareBreakdown: React.FC<FareBreakdownProps> = ({
       {/* Fare Components */}
       <div className="space-y-3 mb-6">
         <div className="flex justify-between items-center">
-          <span className="text-gray-600 dark:text-gray-300">Base Fare</span>
-          <span className="font-medium text-gray-800 dark:text-white">₹{baseFare}</span>
-        </div>
-        
-        <div className="flex justify-between items-center">
           <span className="text-gray-600 dark:text-gray-300">
             Distance ({distance} km × ₹{ratePerKm}/km)
           </span>
           <span className="font-medium text-gray-800 dark:text-white">₹{distanceFare}</span>
         </div>
-        
-        {carSurcharge > 0 && (
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600 dark:text-gray-300">
-              {carType} Surcharge
-            </span>
-            <span className="font-medium text-gray-800 dark:text-white">₹{carSurcharge}</span>
-          </div>
-        )}
         
         {isMinimumFare && (
           <div className="flex justify-between items-center text-orange-600 dark:text-orange-400">
@@ -115,7 +101,7 @@ const FareBreakdown: React.FC<FareBreakdownProps> = ({
       {/* Rate Info */}
       <div className="mt-4 p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
         <p className="text-xs text-blue-700 dark:text-blue-300">
-          <strong>Rate:</strong> ₹{ratePerKm}/km {isAirportTrip ? '(Airport Rate)' : '(Standard Rate)'}
+          <strong>{carType} Rate:</strong> ₹{ratePerKm}/km {isAirportTrip ? '(Airport Rate)' : '(Standard Rate)'}
           {isMinimumFare && ' • Minimum fare: ₹100'}
         </p>
       </div>

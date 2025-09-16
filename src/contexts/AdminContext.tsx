@@ -14,9 +14,10 @@ interface PricingConfig {
     };
   };
   mumbaiLocal: {
-    baseRate: number;
-    airportRate: number;
-    sixSeaterSurcharge: number;
+    fourSeaterRate: number;
+    sixSeaterRate: number;
+    airportFourSeaterRate: number;
+    airportSixSeaterRate: number;
   };
   outstationSixSeaterSurcharge: number;
   cities: string[];
@@ -55,9 +56,10 @@ const defaultPricing: PricingConfig = {
     'Surat-Nashik': { '4-seater': 3200, '6-seater': 4200 }
   },
   mumbaiLocal: {
-    baseRate: 15, // per km
-    airportRate: 18, // per km for airport transfers
-    sixSeaterSurcharge: 200 // additional charge for 6-seater cars
+    fourSeaterRate: 15, // per km for 4-seater
+    sixSeaterRate: 18, // per km for 6-seater
+    airportFourSeaterRate: 18, // per km for 4-seater airport transfers
+    airportSixSeaterRate: 22 // per km for 6-seater airport transfers
   },
   outstationSixSeaterSurcharge: 1000, // additional charge for 6-seater outstation cars
   cities: ['Mumbai', 'Pune', 'Surat', 'Nashik']

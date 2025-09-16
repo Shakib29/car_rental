@@ -147,35 +147,62 @@ export const calculateRoute = async (
 };
 
 // Fare calculation utilities (unchanged)
-export const calculateFare = (distance: number, isAirportTrip: boolean = false, carType: '4-seater' | '6-seater' = '4-seater', sixSeaterSurcharge: number = 200): number => {
-  const baseFare = 50; // Base fare in rupees
-  const ratePerKm = isAirportTrip ? 18 : 15; // Rate per km
-  const minFare = 100; // Minimum fare
+export const calculateFare = (
+  distance: number, 
+  isAirportTrip: boolean = false, 
+  carType: '4-seater' | '6-seater' = '4-seater',
+  rates: {
+    fourSeaterRate: number;
+    sixSeaterRate: number;
+    airportFourSeaterRate: number;
+    airportSixSeaterRate: number;
+  }
+): number => {
+  let ratePerKm: number;
   
-  const distanceFare = distance * ratePerKm;
-  const carSurcharge = carType === '6-seater' ? sixSeaterSurcharge : 0;
-  const totalFare = baseFare + distanceFare + carSurcharge;
+  if (isAirportTrip) {
+    ratePerKm = carType === '4-seater' ? rates.airportFourSeaterRate : rates.airportSixSeaterRate;
+  } else {
+    ratePerKm = carType === '4-seater' ? rates.fourSeaterRate : rates.sixSeaterRate;
+  }
+  
+  const totalFare = distance * ratePerKm;
+  const minFare = 100; // Minimum fare
   
   return Math.max(totalFare, minFare);
 };
 
-export const getFareBreakdown = (distance: number, isAirportTrip: boolean = false, carType: '4-seater' | '6-seater' = '4-seater', sixSeaterSurcharge: number = 200) => {
-  const baseFare = 50;
-  const ratePerKm = isAirportTrip ? 18 : 15;
+export const getFareBreakdown = (
+  distance: number, 
+  isAirportTrip: boolean = false, 
+  carType: '4-seater' | '6-seater' = '4-seater',
+  rates: {
+    fourSeaterRate: number;
+    sixSeaterRate: number;
+    airportFourSeaterRate: number;
+    airportSixSeaterRate: number;
+  }
+) => {
+  let ratePerKm: number;
+  
+  if (isAirportTrip) {
+    ratePerKm = carType === '4-seater' ? rates.airportFourSeaterRate : rates.airportSixSeaterRate;
+  } else {
+    ratePerKm = carType === '4-seater' ? rates.fourSeaterRate : rates.sixSeaterRate;
+  }
+  
   const distanceFare = distance * ratePerKm;
-  const carSurcharge = carType === '6-seater' ? sixSeaterSurcharge : 0;
-  const subtotal = baseFare + distanceFare + carSurcharge;
   const minFare = 100;
-  const total = Math.max(subtotal, minFare);
+  const total = Math.max(distanceFare, minFare);
   
   return {
-    baseFare,
+    baseFare: 0, // No base fare anymore
     distanceFare: Math.round(distanceFare),
-    carSurcharge,
+    carSurcharge: 0, // No car surcharge anymore
     ratePerKm,
     distance,
     carType,
-    subtotal: Math.round(subtotal),
+    subtotal: Math.round(distanceFare),
     total: Math.round(total),
     isMinimumFare: total === minFare
   };
