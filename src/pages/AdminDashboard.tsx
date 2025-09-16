@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { useAdmin } from '../contexts/AdminContext';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 
@@ -878,78 +878,16 @@ const AdminDashboard: React.FC = () => {
             {/* Add New Promotional Post */}
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
               <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Add New Promotional Post</h3>
-              </div>
-              <div className="p-6">
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Title</label>
-                    <input
-                      type="text"
-                      value={newPost.title}
-                      onChange={(e) => setNewPost({ ...newPost, title: e.target.value })}
-                      className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-600 dark:text-white"
-                      placeholder="Enter promotional title"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Display Order</label>
-                    <input
-                      type="number"
-                      value={newPost.display_order}
-                      onChange={(e) => setNewPost({ ...newPost, display_order: Number(e.target.value) })}
-                      className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-600 dark:text-white"
-                      placeholder="0"
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Description</label>
-                    <textarea
-                      value={newPost.description}
-                      onChange={(e) => setNewPost({ ...newPost, description: e.target.value })}
-                      rows={3}
-                      className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-600 dark:text-white"
-                      placeholder="Enter description (optional)"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Image URL</label>
-                    <input
-                      type="url"
-                      value={newPost.image_url}
-                      onChange={(e) => setNewPost({ ...newPost, image_url: e.target.value })}
-                      className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-600 dark:text-white"
-                      placeholder="https://example.com/image.jpg"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Button Text</label>
-                    <input
-                      type="text"
-                      value={newPost.button_text}
-                      onChange={(e) => setNewPost({ ...newPost, button_text: e.target.value })}
-                      className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-600 dark:text-white"
-                      placeholder="Learn More"
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Button Link</label>
-                    <input
-                      type="url"
-                      value={newPost.button_link}
-                      onChange={(e) => setNewPost({ ...newPost, button_link: e.target.value })}
-                      className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-600 dark:text-white"
-                      placeholder="https://example.com"
-                    />
-                  </div>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Promotional Posts</h3>
+                  <Link
+                    to="/admin/create-post"
+                    className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Create New Post</span>
+                  </Link>
                 </div>
-                <button
-                  onClick={createPromotionalPost}
-                  className="mt-6 flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Create Post</span>
-                </button>
               </div>
             </div>
 
