@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  Plus, 
-  Save, 
-  ArrowLeft, 
-  Image, 
-  Type, 
-  Link as LinkIcon, 
-  Eye, 
+import {
+  Plus,
+  Save,
+  ArrowLeft,
+  Image,
+  Type,
+  Link as LinkIcon,
+  Eye,
   EyeOff,
   Hash,
   FileText
@@ -71,8 +71,17 @@ const CreatePromotionalPost: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      // Get current user ID (admin or authenticated user)
-      const userId = admin?.id || user?.id || 'admin';
+      // --- CORRECTED LOGIC START ---
+      // Get current user ID from the user object from the AuthContext.
+      // We check if a user is logged in before proceeding with the insert.
+      const userId = user?.id;
+
+      if (!userId) {
+        toast.error('Failed to create post: User not authenticated.');
+        setIsSubmitting(false);
+        return;
+      }
+      // --- CORRECTED LOGIC END ---
 
       const { error } = await supabase
         .from('promotional_posts')
@@ -315,7 +324,7 @@ const CreatePromotionalPost: React.FC = () => {
                   <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg overflow-hidden">
                     {/* Background Image */}
                     {formData.image_url && (
-                      <div 
+                      <div
                         className="absolute inset-0 bg-cover bg-center opacity-20"
                         style={{ backgroundImage: `url(${formData.image_url})` }}
                       />
